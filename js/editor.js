@@ -151,7 +151,7 @@ var Editor = (function () {
       stickers: state.stickers
     }));
 
-    historyStack.push({ snapshot: snapshot, image: state.image });
+    historyStack.push({ snapshot: snapshot, image: state.image, originalImage: state.originalImage });
     if (historyStack.length > MAX_HISTORY) historyStack.shift();
     historyIndex = historyStack.length - 1;
     updateUndoRedoBtns();
@@ -193,6 +193,12 @@ var Editor = (function () {
     state.transparentBg = s.transparentBg || false;
     state.stickers = s.stickers || [];
     state.image = item.image;
+    state.originalImage = item.originalImage || item.image;
+
+    var revertBtn = document.getElementById('revertCutoutBtn');
+    if (revertBtn) {
+      revertBtn.disabled = (!state.originalImage || state.image === state.originalImage);
+    }
 
     syncUiFromState();
     renderPreview();
@@ -264,7 +270,10 @@ var Editor = (function () {
 
     if (hamsterImages[id]) {
       state.image = hamsterImages[id];
+      state.originalImage = hamsterImages[id];
       state.imageDataUrl = (window.HamsterData && HamsterData[id]) || '';
+      var revertBtn = document.getElementById('revertCutoutBtn');
+      if (revertBtn) revertBtn.disabled = true;
       updateClearBtn();
       renderPreview();
       pushHistory();
@@ -277,7 +286,10 @@ var Editor = (function () {
             if (err2) { Utils.showToast(toastEl, err2, 'error'); return; }
             hamsterImages[id] = img2;
             state.image = img2;
+            state.originalImage = img2;
             state.imageDataUrl = '';
+            var revertBtn2 = document.getElementById('revertCutoutBtn');
+            if (revertBtn2) revertBtn2.disabled = true;
             updateClearBtn();
             renderPreview();
             pushHistory();
@@ -286,7 +298,10 @@ var Editor = (function () {
         }
         hamsterImages[id] = img;
         state.image = img;
+        state.originalImage = img;
         state.imageDataUrl = (window.HamsterData && HamsterData[id]) || '';
+        var revertBtn3 = document.getElementById('revertCutoutBtn');
+        if (revertBtn3) revertBtn3.disabled = true;
         updateClearBtn();
         renderPreview();
         pushHistory();
@@ -314,9 +329,12 @@ var Editor = (function () {
     if (clearImageBtn) {
       clearImageBtn.addEventListener('click', function () {
         state.image = null;
+        state.originalImage = null;
         state.hamsterId = '';
         state.imageDataUrl = '';
         document.querySelectorAll('.hamster-thumb').forEach(function (t) { t.classList.remove('active'); });
+        var revertBtn = document.getElementById('revertCutoutBtn');
+        if (revertBtn) revertBtn.disabled = true;
         updateClearBtn();
         renderPreview();
         pushHistory();
@@ -452,9 +470,7 @@ var Editor = (function () {
             Utils.showToast(toastEl, '누끼 처리 실패: ' + err, 'error');
             return;
           }
-          if (!state.originalImage) {
-            state.originalImage = sourceImg;
-          }
+          state.originalImage = sourceImg;
           state.image = cutImg;
           state.imageDataUrl = cutImg.src;
           if (revertCutoutBtn) revertCutoutBtn.disabled = false;
@@ -469,7 +485,7 @@ var Editor = (function () {
       revertCutoutBtn.addEventListener('click', function () {
         if (!state.originalImage) return;
         state.image = state.originalImage;
-        state.imageDataUrl = state.originalImage.src;
+        state.imageDataUrl = state.originalImage.src || '';
         revertCutoutBtn.disabled = true;
         renderPreview();
         pushHistory();
@@ -1548,7 +1564,13 @@ var Editor = (function () {
       selectHamster(tpl.hamsterId);
     } else if (tpl.imageData) {
       Utils.loadImageFromUrl(tpl.imageData, function (err, img) {
-        if (!err) { state.image = img; state.imageDataUrl = tpl.imageData; }
+        if (!err) {
+          state.image = img;
+          state.originalImage = img;
+          state.imageDataUrl = tpl.imageData;
+          var revertBtn = document.getElementById('revertCutoutBtn');
+          if (revertBtn) revertBtn.disabled = true;
+        }
         updateClearBtn();
         renderPreview();
         pushHistory();

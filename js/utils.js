@@ -152,7 +152,7 @@ var Utils = (function () {
     });
   }
 
-  /* 사진 자동 누끼 따기 (지능형 가장자리 감지 + 플러드필 배경 투명화) */
+  /* 사진 자동 누끼 따기 (Sobel 경계선 장벽 감지 + 피사체 보호 BFS 플러드필 배경 투명화) */
   function createCutoutImage(img, options, cb) {
     if (!img) return cb('이미지가 유효하지 않습니다.');
     var opts = options || {};
@@ -177,30 +177,65 @@ var Utils = (function () {
 
     var data = imgData.data;
     var totalPixels = w * h;
-    var visited = new Uint8Array(totalPixels);
 
-    /* 1. 이미지 네 귀퉁이 및 외곽 둘레 샘플링으로 배경 대표 색상 산출 */
-    var samplePoints = [
-      0, 1, 2, Math.floor(w / 2), w - 1,
-      totalPixels - w, totalPixels - Math.floor(w / 2), totalPixels - 1
-    ];
-    var bgR = 0, bgG = 0, bgB = 0, sampleCount = 0;
-    for (var sp = 0; sp < samplePoints.length; sp++) {
-      var pIdx = samplePoints[sp];
-      if (pIdx >= 0 && pIdx < totalPixels) {
-        bgR += data[pIdx * 4];
-        bgG += data[pIdx * 4 + 1];
-        bgB += data[pIdx * 4 + 2];
-        sampleCount++;
+    /* 1. 색상 그래디언트(Sobel/Gradient Magnitude) 맵 사전 계산 */
+    /* 피사체(인물, 햄스터, 사물)의 외곽 윤곽선은 높은 그래디언트 값을 가짐 */
+    var grad = new Uint8Array(totalPixels);
+    for (var y = 1; y < h - 1; y++) {
+      var rowOffset = y * w;
+      for (var x = 1; x < w - 1; x++) {
+        var idx = rowOffset + x;
+        var rIdx = (idx + 1) * 4;
+        var lIdx = (idx - 1) * 4;
+        var dIdx = (idx + w) * 4;
+        var uIdx = (idx - w) * 4;
+
+        var dxR = Math.abs(data[rIdx] - data[lIdx]);
+        var dxG = Math.abs(data[rIdx + 1] - data[lIdx + 1]);
+        var dxB = Math.abs(data[rIdx + 2] - data[lIdx + 2]);
+
+        var dyR = Math.abs(data[dIdx] - data[uIdx]);
+        var dyG = Math.abs(data[dIdx + 1] - data[uIdx + 1]);
+        var dyB = Math.abs(data[dIdx + 2] - data[uIdx + 2]);
+
+        var mag = Math.max(dxR, dxG, dxB, dyR, dyG, dyB);
+        grad[idx] = mag > 255 ? 255 : mag;
       }
     }
-    bgR = Math.round(bgR / sampleCount);
-    bgG = Math.round(bgG / sampleCount);
-    bgB = Math.round(bgB / sampleCount);
 
-    /* 2. 외곽 테두리(Perimeter)에서 시작하는 4방향 BFS 플러드필 */
-    var queue = new Int32Array(totalPixels);
-    var head = 0, tail = 0;
+    /* 2. 안전 모서리(Safe Corners) 및 상단 외곽 영역에서 배경 대표 색상 추출 */
+    /* 피사체(인물/동물)가 주로 위치하는 하단 중앙은 의도적으로 제외 */
+    var cornerPatchW = Math.max(5, Math.min(25, Math.floor(w * 0.1)));
+    var cornerPatchH = Math.max(5, Math.min(25, Math.floor(h * 0.1)));
+
+    function getPatchAvgColor(startX, startY, pW, pH) {
+      var sumR = 0, sumG = 0, sumB = 0, count = 0;
+      for (var py = startY; py < startY + pH; py++) {
+        for (var px = startX; px < startX + pW; px++) {
+          if (px >= 0 && px < w && py >= 0 && py < h) {
+            var p4 = (py * w + px) * 4;
+            sumR += data[p4];
+            sumG += data[p4 + 1];
+            sumB += data[p4 + 2];
+            count++;
+          }
+        }
+      }
+      return count > 0 ? [Math.round(sumR / count), Math.round(sumG / count), Math.round(sumB / count)] : [245, 245, 245];
+    }
+
+    var colTL = getPatchAvgColor(0, 0, cornerPatchW, cornerPatchH);
+    var colTR = getPatchAvgColor(w - cornerPatchW, 0, cornerPatchW, cornerPatchH);
+    var colBL = getPatchAvgColor(0, h - cornerPatchH, cornerPatchW, cornerPatchH);
+    var colBR = getPatchAvgColor(w - cornerPatchW, h - cornerPatchH, cornerPatchW, cornerPatchH);
+
+    var topBgR = Math.round((colTL[0] + colTR[0]) / 2);
+    var topBgG = Math.round((colTL[1] + colTR[1]) / 2);
+    var topBgB = Math.round((colTL[2] + colTR[2]) / 2);
+
+    var btmBgR = Math.round((colBL[0] + colBR[0]) / 2);
+    var btmBgG = Math.round((colBL[1] + colBR[1]) / 2);
+    var btmBgB = Math.round((colBL[2] + colBR[2]) / 2);
 
     function colorDist(r1, g1, b1, r2, g2, b2) {
       var dr = r1 - r2;
@@ -209,46 +244,86 @@ var Utils = (function () {
       return Math.sqrt(dr * dr + dg * dg + db * db);
     }
 
-    /* 상/하/좌/우 테두리 픽셀을 시작 시드로 추가 */
-    for (var x = 0; x < w; x++) {
-      /* 상단 */
-      var topIdx = x;
-      if (colorDist(data[topIdx * 4], data[topIdx * 4 + 1], data[topIdx * 4 + 2], bgR, bgG, bgB) <= tolerance * 1.5) {
-        visited[topIdx] = 1;
-        queue[tail++] = topIdx;
-      }
-      /* 하단 */
-      var btmIdx = (h - 1) * w + x;
-      if (colorDist(data[btmIdx * 4], data[btmIdx * 4 + 1], data[btmIdx * 4 + 2], bgR, bgG, bgB) <= tolerance * 1.5) {
-        visited[btmIdx] = 1;
-        queue[tail++] = btmIdx;
-      }
+    function distToBg(r, g, b, py) {
+      /* 상하 수직 그라데이션 보간 배경 색상 */
+      var yRatio = h > 1 ? py / (h - 1) : 0;
+      var expR = topBgR + (btmBgR - topBgR) * yRatio;
+      var expG = topBgG + (btmBgG - topBgG) * yRatio;
+      var expB = topBgB + (btmBgB - topBgB) * yRatio;
+
+      var dGrad = colorDist(r, g, b, expR, expG, expB);
+      var dTL = colorDist(r, g, b, colTL[0], colTL[1], colTL[2]);
+      var dTR = colorDist(r, g, b, colTR[0], colTR[1], colTR[2]);
+      var dBL = colorDist(r, g, b, colBL[0], colBL[1], colBL[2]);
+      var dBR = colorDist(r, g, b, colBR[0], colBR[1], colBR[2]);
+
+      return Math.min(dGrad, dTL, dTR, dBL, dBR);
     }
-    for (var y = 0; y < h; y++) {
-      /* 좌측 */
-      var leftIdx = y * w;
-      if (!visited[leftIdx] && colorDist(data[leftIdx * 4], data[leftIdx * 4 + 1], data[leftIdx * 4 + 2], bgR, bgG, bgB) <= tolerance * 1.5) {
-        visited[leftIdx] = 1;
-        queue[tail++] = leftIdx;
-      }
-      /* 우측 */
-      var rightIdx = y * w + (w - 1);
-      if (!visited[rightIdx] && colorDist(data[rightIdx * 4], data[rightIdx * 4 + 1], data[rightIdx * 4 + 2], bgR, bgG, bgB) <= tolerance * 1.5) {
-        visited[rightIdx] = 1;
-        queue[tail++] = rightIdx;
+
+    /* 3. 경계선 차단 BFS 플러드필 초기화 */
+    var visited = new Uint8Array(totalPixels);
+    var queue = new Int32Array(totalPixels);
+    var head = 0, tail = 0;
+
+    var baseTolDist = tolerance * 1.35;
+    /* 경계선 차단 임계값: 감도에 연동하되 피사체 경계(14~28)를 넘지 않도록 제한 */
+    var baseEdgeThresh = Math.max(10, Math.min(26, Math.round(11 + tolerance * 0.22)));
+    var maxStepDiff = Math.max(12, Math.min(28, Math.round(13 + tolerance * 0.25)));
+
+    /* 외곽 테두리에서 안전한 시드 픽셀 선택 (피사체 경계에 닿지 않는 모서리/상단 중심) */
+    function trySeed(px, py) {
+      var pIdx = py * w + px;
+      if (visited[pIdx]) return;
+      if (grad[pIdx] > baseEdgeThresh) return; /* 경계선 위 픽셀은 시드 제외 */
+
+      var p4 = pIdx * 4;
+      var d = distToBg(data[p4], data[p4 + 1], data[p4 + 2], py);
+      if (d <= baseTolDist * 1.25) {
+        visited[pIdx] = 1;
+        queue[tail++] = pIdx;
       }
     }
 
-    /* BFS 탐색으로 배경 영역 완전 확장 */
-    var tolDist = tolerance * 1.6;
-    var softBand = 10; /* 가장자리 페더링 밴드 */
+    /* 상단 테두리 전 구간 */
+    for (var x = 0; x < w; x++) {
+      trySeed(x, 0);
+    }
+    /* 좌측 및 우측 테두리 */
+    for (var y = 0; y < h; y++) {
+      trySeed(0, y);
+      trySeed(w - 1, y);
+    }
+    /* 하단 테두리는 좌/우 22% 모서리 영역만 안전 시드로 적용 (중앙 피사체 제외) */
+    var btmSafeW = Math.floor(w * 0.22);
+    for (var bx = 0; bx < btmSafeW; bx++) {
+      trySeed(bx, h - 1);
+      trySeed(w - 1 - bx, h - 1);
+    }
+    /* 하단 중앙부의 경우, 배경색과 아주 가깝고 그래디언트가 0에 가까운 경우에만 제한적 시드 */
+    for (var mx = btmSafeW; mx < w - btmSafeW; mx++) {
+      var mIdx = (h - 1) * w + mx;
+      if (grad[mIdx] < 8) {
+        var m4 = mIdx * 4;
+        if (distToBg(data[m4], data[m4 + 1], data[m4 + 2], h - 1) < baseTolDist * 0.75) {
+          trySeed(mx, h - 1);
+        }
+      }
+    }
+
+    /* 4. 피사체 중심 보호(Center Saliency Prior) + 경계선 차단 BFS 확장 */
+    var centerX = w / 2;
+    var centerY = h / 2;
+    var maxRadius = Math.sqrt(centerX * centerX + centerY * centerY);
 
     while (head < tail) {
       var curr = queue[head++];
       var cx = curr % w;
       var cy = Math.floor(curr / w);
+      var c4 = curr * 4;
+      var cr = data[c4];
+      var cg = data[c4 + 1];
+      var cbVal = data[c4 + 2];
 
-      /* 4방향 이웃 탐색 */
       var neighbors = [
         cx > 0 ? curr - 1 : -1,
         cx < w - 1 ? curr + 1 : -1,
@@ -258,34 +333,76 @@ var Utils = (function () {
 
       for (var ni = 0; ni < 4; ni++) {
         var nIdx = neighbors[ni];
-        if (nIdx !== -1 && !visited[nIdx]) {
-          var nr = data[nIdx * 4];
-          var ng = data[nIdx * 4 + 1];
-          var nb = data[nIdx * 4 + 2];
-          var dist = colorDist(nr, ng, nb, bgR, bgG, bgB);
+        if (nIdx === -1 || visited[nIdx]) continue;
 
-          if (dist <= tolDist) {
-            visited[nIdx] = 1;
-            queue[tail++] = nIdx;
-          }
+        var nx = nIdx % w;
+        var ny = Math.floor(nIdx / w);
+
+        /* 피사체 중심 거리 계산: 중심부(얼굴, 가슴, 배 털)로 진입할수록 임계값 강화 */
+        var dx = nx - centerX;
+        var dy = ny - centerY;
+        var distCenter = Math.sqrt(dx * dx + dy * dy) / maxRadius; /* 0.0 ~ 1.0 */
+        var centerFactor = Math.min(1.0, Math.max(0.38, distCenter * 1.25));
+
+        /* 경계선(Edge) 장벽 검사: 중심부일수록 약한 경계선도 장벽으로 인정 */
+        var curEdgeBarrier = Math.round(baseEdgeThresh * (0.55 + 0.45 * centerFactor));
+        if (grad[nIdx] >= curEdgeBarrier) {
+          continue; /* 경계선에 도달하면 플러드필 즉시 정지 */
+        }
+
+        /* 인접 픽셀 간 급격한 색상 점프 차단 */
+        var n4 = nIdx * 4;
+        var nr = data[n4];
+        var ng = data[n4 + 1];
+        var nb = data[n4 + 2];
+        var stepDiff = colorDist(cr, cg, cbVal, nr, ng, nb);
+        if (stepDiff > maxStepDiff * (0.6 + 0.4 * centerFactor)) {
+          continue; /* 급격한 경계 통과 차단 */
+        }
+
+        /* 배경 색상과의 거리 검사 (중심부는 더욱 엄격하게 보호) */
+        var curTolDist = baseTolDist * centerFactor;
+        var d = distToBg(nr, ng, nb, ny);
+        if (d <= curTolDist) {
+          visited[nIdx] = 1;
+          queue[tail++] = nIdx;
         }
       }
     }
 
-    /* 3. 배경으로 확인된 픽셀 투명화 및 경계선 부드러운 안티에일리어싱 처리 */
-    for (var i = 0; i < totalPixels; i++) {
-      if (visited[i]) {
-        var r = data[i * 4];
-        var g = data[i * 4 + 1];
-        var b = data[i * 4 + 2];
-        var d = colorDist(r, g, b, bgR, bgG, bgB);
+    /* 5. 피사체 내부 고립 영역(Hole) 보호 및 알파 페더링(Anti-Aliasing) 처리 */
+    var softBand = Math.max(6, Math.min(14, Math.round(tolerance * 0.3)));
 
-        if (d > tolDist - softBand) {
-          /* 경계선 부드러운 알파 페더링 */
-          var alphaFactor = (d - (tolDist - softBand)) / softBand;
-          data[i * 4 + 3] = Math.round(alphaFactor * 255);
+    for (var y = 0; y < h; y++) {
+      var row = y * w;
+      for (var x = 0; x < w; x++) {
+        var i = row + x;
+        var p4 = i * 4;
+
+        if (visited[i]) {
+          var r = data[p4];
+          var g = data[p4 + 1];
+          var b = data[p4 + 2];
+          var d = distToBg(r, g, b, y);
+
+          /* 피사체 경계 부근 안티에일리어싱(페더링) */
+          var hasFgNeighbor = false;
+          if (x > 0 && !visited[i - 1]) hasFgNeighbor = true;
+          else if (x < w - 1 && !visited[i + 1]) hasFgNeighbor = true;
+          else if (y > 0 && !visited[i - w]) hasFgNeighbor = true;
+          else if (y < h - 1 && !visited[i + w]) hasFgNeighbor = true;
+
+          if (hasFgNeighbor || d > baseTolDist - softBand) {
+            var alphaFactor = (d - (baseTolDist - softBand)) / softBand;
+            if (alphaFactor < 0) alphaFactor = 0;
+            if (alphaFactor > 1) alphaFactor = 1;
+            data[p4 + 3] = Math.round(alphaFactor * 255);
+          } else {
+            data[p4 + 3] = 0; /* 배경 완전 투명화 */
+          }
         } else {
-          data[i * 4 + 3] = 0; /* 배경 완전 투명화 */
+          /* 피사체(인물/사물/햄스터)는 온전히 불투명(255) 유지 */
+          data[p4 + 3] = 255;
         }
       }
     }
