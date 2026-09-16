@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>또햄찌 공방 — 편집기</title>
+  <meta name="description" content="귀여운 또햄찌 사진으로 말풍선과 스티커를 더해 나만의 짤방을 1초 만에 만드는 고화질 짤방 공방">
+  <meta property="og:title" content="또햄찌 공방 — 고화질 짤방 편집기">
+  <meta property="og:description" content="귀여운 또햄찌 사진으로 말풍선과 스티커를 더해 나만의 짤방을 1초 만에 만드세요!">
+  <meta property="og:image" content="assets/hamster-logo.png">
+  <link rel="icon" type="image/png" href="assets/hamster-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Black+Han+Sans&family=Cute+Font&family=Do+Hyeon&family=Dokdo&family=Dongle:wght@300;400;700&family=Gaegu:wght@400;700&family=Gamja+Flower&family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Gugi&family=Hahmlet:wght@400;700;900&family=Hi+Melody&family=Jua&family=Kirang+Haerang&family=Nanum+Gothic:wght@400;700;800&family=Nanum+Myeongjo:wght@400;700;800&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@400;500;700;900&family=Poor+Story&family=Single+Day&family=Song+Myung&family=Sunflower:wght@500;700&family=Yeon+Sung&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <header class="top-bar">
+    <div class="brand-area">
+      <h1 class="brand">
+        <img src="assets/hamster-logo.png" alt="햄찌 로고" class="brand-logo">
+        <span>또햄찌 공방</span>
+      </h1>
+      <div class="history-btns">
+        <button id="undoBtn" class="nav-btn icon-btn" type="button" title="실행 취소 (Ctrl+Z)" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+          </svg>
+          <span>실행취소</span>
+        </button>
+        <button id="redoBtn" class="nav-btn icon-btn" type="button" title="다시 실행 (Ctrl+Y)" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10" />
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+          </svg>
+          <span>다시실행</span>
+        </button>
+      </div>
+    </div>
+    <nav class="top-nav">
+      <button id="templateBtn" class="nav-btn" type="button">내 템플릿</button>
+      <button id="jsonBtn" class="nav-btn" type="button">JSON</button>
+    </nav>
+  </header>
+
+  <main class="editor">
+    <!-- 왼쪽: 햄찌 선택 & 업로드 -->
+    <section class="panel panel-left" aria-label="햄찌 선택">
+      <h2 class="panel-title">햄찌 선택</h2>
+      <div class="hamster-grid" id="hamsterGrid"></div>
+      <div class="divider"></div>
+      <h2 class="panel-title">내 이미지 업로드</h2>
+      <label class="upload-btn" tabindex="0">
+        <input type="file" id="imageUpload" accept="image/png,image/jpeg" hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" class="upload-svg">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+        <span class="upload-btn-text">고화질 사진 업로드</span>
+        <span class="upload-hint">PNG, JPEG (최대 10MB)</span>
+      </label>
+
+      <!-- 업로드 파일 용량 스마트 최적화 배지 -->
+      <div id="uploadOptimizeBadge" class="upload-opt-badge" hidden>
+        <div class="opt-badge-left">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span class="opt-badge-text" id="uploadOptText">용량 최적화: <strong>--</strong></span>
+        </div>
+        <span class="opt-badge-saving" id="uploadOptSaving">절감</span>
+      </div>
+
+      <!-- 자동 누끼 따기 (배경 투명화) 제어 카드 -->
+      <div class="cutout-card" id="cutoutCard">
+        <div class="cutout-header">
+          <div class="cutout-title-wrap">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round" class="cutout-icon">
+              <path
+                d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+            </svg>
+            <div class="cutout-title-text-group">
+              <span class="cutout-title">자동 누끼 따기</span>
+              <span class="cutout-sub-badge">배경 투명화</span>
+            </div>
+          </div>
+          <label class="switch-toggle" title="사진 업로드 시 자동으로 배경을 감지하여 투명하게 제거합니다">
+            <input type="checkbox" id="autoCutoutToggle" checked>
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div class="cutout-body">
+          <div class="cutout-slider-row">
+            <label for="cutoutTolerance" class="cutout-slider-label">감도 (허용 오차) <span id="cutoutTolVal"
+                class="field-val">35</span></label>
+            <input type="range" id="cutoutTolerance" min="10" max="75" value="35" class="slider cutout-slider">
+          </div>
+          <div class="cutout-actions">
+            <button type="button" id="applyCutoutBtn" class="cutout-btn cutout-apply-btn"
+              title="설정한 감도로 배경을 투명하게 다시 누끼 땁니다">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polygon
+                  points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+              <span>누끼 실행</span>
+            </button>
+            <button type="button" id="revertCutoutBtn" class="cutout-btn cutout-revert-btn"
+              title="배경 제거 전 원본 사진으로 복원합니다" disabled>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              <span>원본 복원</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 가운데: 미리보기 캔버스 및 출력 제어 -->
+    <section class="panel panel-center" aria-label="미리보기">
+      <div class="preview-wrap" id="previewWrap">
+        <canvas id="previewCanvas"></canvas>
+        <div id="toast" class="toast" hidden role="alert" aria-live="polite" title="클릭하여 닫기"></div>
+        <div id="dragDropOverlay" class="drag-drop-overlay" aria-hidden="true">
+          <div class="drag-drop-box">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="drag-icon">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <p class="drag-text">여기에 이미지를 놓으세요!</p>
+            <span class="drag-subtext">고화질 사진으로 즉시 적용됩니다</span>
+          </div>
+        </div>
+        <button id="clearImageBtn" class="clear-img-btn" type="button" aria-label="선택 해제" title="선택한 이미지 제거" hidden>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- 이미지 맞춤 및 노출 영역 제어 -->
+      <div class="image-adjust-bar">
+        <div class="fit-toggle-group">
+          <span class="control-sublabel">사진 맞춤:</span>
+          <button id="fitCoverBtn" class="fit-btn active" data-fit="cover" type="button" title="프레임을 빈틈없이 꽉 채웁니다">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            </svg>
+            <span>채우기 (여백 없이 꽉 채움)</span>
+          </button>
+          <button id="fitContainBtn" class="fit-btn" data-fit="contain" type="button"
+            title="사진 전체를 표시하고 남는 여백에 배경색을 채웁니다">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="3" />
+              <rect x="6" y="6" width="12" height="12" rx="1" />
+            </svg>
+            <span>맞춤 (여백에 배경색 채움)</span>
+          </button>
+        </div>
+        <div id="fitModeDesc" class="fit-info-badge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          <span><strong>채우기 모드</strong>: 여백 없이 프레임을 꽉 채웁니다. <br> 마우스 드래그로 노출 위치를 맞추세요.</span>
+        </div>
+        <div class="zoom-group">
+          <label class="control-sublabel" for="imgZoom">줌 <span id="imgZoomVal" class="field-val">100%</span></label>
+          <button id="zoomOutBtn" class="mini-btn zoom-btn" type="button" title="축소" aria-label="축소">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"
+              stroke-linecap="round">
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+          <input type="range" id="imgZoom" min="50" max="250" value="100" class="slider zoom-slider">
+          <button id="zoomInBtn" class="mini-btn zoom-btn" type="button" title="확대" aria-label="확대">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"
+              stroke-linecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+          <button id="resetPanBtn" class="mini-btn reset-btn" type="button" title="이미지 위치 및 줌 초기화">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            <span>초기화</span>
+          </button>
+        </div>
+        <div class="drag-guide-hint">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          <span>캔버스 위에서 <strong>마우스 휠</strong>을 굴려 확대/축소하고, <strong>드래그</strong>하여 노출 부위를 맞추세요.</span>
+        </div>
+      </div>
+
+      <!-- 비율 선택 바 -->
+      <div class="ratio-bar">
+        <button class="ratio-btn active" data-ratio="1:1" type="button">1:1 (정사각형)</button>
+        <button class="ratio-btn" data-ratio="4:5" type="button">4:5 (인스타 피드)</button>
+        <button class="ratio-btn" data-ratio="9:16" type="button">9:16 (스토리/릴스)</button>
+      </div>
+
+      <!-- 다운로드 & 클립보드 복사 영역 (모던 통합 툴바) -->
+      <div class="download-section">
+        <div class="export-format-selector" id="exportFormatSelector">
+          <span class="format-label">저장 형식:</span>
+          <div class="export-chips-track" id="exportChipsTrack">
+            <div class="export-glider" id="exportGlider"></div>
+            <button class="export-chip active" data-format="png" data-res="1080" type="button">PNG</button>
+            <button class="export-chip" data-format="jpeg" data-res="1080" type="button">JPEG</button>
+            <button class="export-chip" data-format="webp" data-res="1080" type="button">WebP</button>
+            <button class="export-chip" data-format="png" data-res="3840" type="button">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polygon
+                  points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+              <span>4K 초고화질</span>
+            </button>
+          </div>
+        </div>
+        <div class="download-action-row">
+          <button id="mainDownloadBtn" class="dl-btn dl-primary" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span id="mainDownloadText">PNG 다운로드 (1080px)</span>
+          </button>
+          <button id="copyClipboardBtn" class="dl-btn dl-copy" type="button" title="클립보드에 복사하여 카톡/슬랙에 바로 붙여넣기">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+            <span>복사</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 오른쪽: 문구 및 스타일 편집 -->
+    <section class="panel panel-right" aria-label="문구 편집">
+      <!-- 폰트 글꼴 선택 (24종 - 이모지 완전 제거 & 슬라이딩 아코디언 드로어) -->
+      <h2 class="panel-title">글꼴 (폰트)</h2>
+      <div class="font-drawer-wrap" id="fontDrawerWrap">
+        <button type="button" class="font-trigger-btn" id="fontTriggerBtn" aria-expanded="false"
+          aria-controls="fontSlidingPanel">
+          <span class="font-trigger-text" id="fontTriggerName">Noto Sans KR (깔끔 표준 고딕)</span>
+          <svg class="font-trigger-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <div class="font-sliding-panel" id="fontSlidingPanel" role="listbox">
+          <!-- 1. 추천 인기 짤방체 -->
+          <div class="font-optgroup">
+            <div class="font-optgroup-title">추천 인기 짤방체</div>
+            <div class="font-opt-item" role="option" data-value="'Bagel Fat One', cursive"
+              style="font-family: 'Bagel Fat One', cursive;">
+              <span class="font-opt-label">베이글 폰트</span>
+              <span class="font-opt-desc">도톰 귀염 특화</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Black Han Sans', sans-serif"
+              style="font-family: 'Black Han Sans', sans-serif;">
+              <span class="font-opt-label">검은고딕</span>
+              <span class="font-opt-desc">강력 임팩트 짤방체</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Do Hyeon', sans-serif"
+              style="font-family: 'Do Hyeon', sans-serif;">
+              <span class="font-opt-label">배민 도현체</span>
+              <span class="font-opt-desc">단단한 제목 폰트</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Jua', sans-serif"
+              style="font-family: 'Jua', sans-serif;">
+              <span class="font-opt-label">배민 주아체</span>
+              <span class="font-opt-desc">동글동글 친근함</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Kirang Haerang', cursive"
+              style="font-family: 'Kirang Haerang', cursive;">
+              <span class="font-opt-label">기랑해랑체</span>
+              <span class="font-opt-desc">익살 개성 짤방체</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Gugi', cursive" style="font-family: 'Gugi', cursive;">
+              <span class="font-opt-label">구기체</span>
+              <span class="font-opt-desc">레트로 미래 감성</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- 2. 귀여운 손글씨 / 다꾸체 -->
+          <div class="font-optgroup">
+            <div class="font-optgroup-title">귀여운 손글씨 / 다꾸체</div>
+            <div class="font-opt-item" role="option" data-value="'Dongle', sans-serif"
+              style="font-family: 'Dongle', sans-serif;">
+              <span class="font-opt-label">동글체</span>
+              <span class="font-opt-desc">아기자기 귀염뽀짝</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Hi Melody', cursive"
+              style="font-family: 'Hi Melody', cursive;">
+              <span class="font-opt-label">하이멜로디</span>
+              <span class="font-opt-desc">발랄 경쾌한 손글씨</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Cute Font', cursive"
+              style="font-family: 'Cute Font', cursive;">
+              <span class="font-opt-label">큐트폰트</span>
+              <span class="font-opt-desc">동글납작 귀여움</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Gamja Flower', cursive"
+              style="font-family: 'Gamja Flower', cursive;">
+              <span class="font-opt-label">감자꽃체</span>
+              <span class="font-opt-desc">자연스런 손글씨</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Gaegu', cursive"
+              style="font-family: 'Gaegu', cursive;">
+              <span class="font-opt-label">개구체</span>
+              <span class="font-opt-desc">장난꾸러기 감성</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Nanum Pen Script', cursive"
+              style="font-family: 'Nanum Pen Script', cursive;">
+              <span class="font-opt-label">나눔손글씨 펜체</span>
+              <span class="font-opt-desc">아날로그 펜</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Single Day', cursive"
+              style="font-family: 'Single Day', cursive;">
+              <span class="font-opt-label">싱글데이체</span>
+              <span class="font-opt-desc">다이어리 꾸미기</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Poor Story', cursive"
+              style="font-family: 'Poor Story', cursive;">
+              <span class="font-opt-label">푸어스토리</span>
+              <span class="font-opt-desc">칠판 분필 감성</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Yeon Sung', cursive"
+              style="font-family: 'Yeon Sung', cursive;">
+              <span class="font-opt-label">배민 연성체</span>
+              <span class="font-opt-desc">따뜻한 붓글씨</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- 3. 감성 명조 / 캘리체 -->
+          <div class="font-optgroup">
+            <div class="font-optgroup-title">감성 명조 / 캘리체</div>
+            <div class="font-opt-item" role="option" data-value="'Gowun Batang', serif"
+              style="font-family: 'Gowun Batang', serif;">
+              <span class="font-opt-label">고운 바탕체</span>
+              <span class="font-opt-desc">서정적 감성 명조</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Nanum Myeongjo', serif"
+              style="font-family: 'Nanum Myeongjo', serif;">
+              <span class="font-opt-label">나눔명조</span>
+              <span class="font-opt-desc">단아하고 품격있는</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Song Myung', serif"
+              style="font-family: 'Song Myung', serif;">
+              <span class="font-opt-label">송명체</span>
+              <span class="font-opt-desc">진지 궁서 짤방체</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Hahmlet', serif"
+              style="font-family: 'Hahmlet', serif;">
+              <span class="font-opt-label">함렛체</span>
+              <span class="font-opt-desc">빈티지 활자 감성</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Dokdo', cursive"
+              style="font-family: 'Dokdo', cursive;">
+              <span class="font-opt-label">독도체</span>
+              <span class="font-opt-desc">거친 붓터치 캘리</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- 4. 깔끔 / 모던 고딕체 -->
+          <div class="font-optgroup">
+            <div class="font-optgroup-title">깔끔 / 모던 고딕체</div>
+            <div class="font-opt-item selected" role="option" data-value="'Noto Sans KR', sans-serif"
+              style="font-family: 'Noto Sans KR', sans-serif;">
+              <span class="font-opt-label">Noto Sans KR</span>
+              <span class="font-opt-desc">깔끔 표준 고딕</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Nanum Gothic', sans-serif"
+              style="font-family: 'Nanum Gothic', sans-serif;">
+              <span class="font-opt-label">나눔고딕</span>
+              <span class="font-opt-desc">친근하고 반듯함</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Gowun Dodum', sans-serif"
+              style="font-family: 'Gowun Dodum', sans-serif;">
+              <span class="font-opt-label">고운 돋움체</span>
+              <span class="font-opt-desc">차분하고 정갈함</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div class="font-opt-item" role="option" data-value="'Sunflower', sans-serif"
+              style="font-family: 'Sunflower', sans-serif;">
+              <span class="font-opt-label">해바라기체</span>
+              <span class="font-opt-desc">단정 감성 고딕</span>
+              <svg class="font-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- 스크립트 호환용 숨김 셀렉트 (이모지 완전 제거) -->
+        <select id="fontFamily" class="select-input" hidden tabindex="-1" aria-hidden="true">
+          <optgroup label="추천 인기 짤방체">
+            <option value="'Bagel Fat One', cursive">베이글 폰트 (도톰 귀염 특화)</option>
+            <option value="'Black Han Sans', sans-serif">검은고딕 (강력 임팩트 짤방체)</option>
+            <option value="'Do Hyeon', sans-serif">배민 도현체 (단단한 제목 폰트)</option>
+            <option value="'Jua', sans-serif">배민 주아체 (동글동글 친근함)</option>
+            <option value="'Kirang Haerang', cursive">기랑해랑체 (익살 개성 짤방체)</option>
+            <option value="'Gugi', cursive">구기체 (레트로 미래 감성)</option>
+          </optgroup>
+          <optgroup label="귀여운 손글씨 / 다꾸체">
+            <option value="'Dongle', sans-serif">동글체 (아기자기 귀염뽀짝)</option>
+            <option value="'Hi Melody', cursive">하이멜로디 (발랄 경쾌한 손글씨)</option>
+            <option value="'Cute Font', cursive">큐트폰트 (동글납작 귀여움)</option>
+            <option value="'Gamja Flower', cursive">감자꽃체 (자연스런 손글씨)</option>
+            <option value="'Gaegu', cursive">개구체 (장난꾸러기 감성)</option>
+            <option value="'Nanum Pen Script', cursive">나눔손글씨 펜체 (아날로그 펜)</option>
+            <option value="'Single Day', cursive">싱글데이체 (다이어리 꾸미기)</option>
+            <option value="'Poor Story', cursive">푸어스토리 (칠판 분필 감성)</option>
+            <option value="'Yeon Sung', cursive">배민 연성체 (따뜻한 붓글씨)</option>
+          </optgroup>
+          <optgroup label="감성 명조 / 캘리체">
+            <option value="'Gowun Batang', serif">고운 바탕체 (서정적 감성 명조)</option>
+            <option value="'Nanum Myeongjo', serif">나눔명조 (단아하고 품격있는)</option>
+            <option value="'Song Myung', serif">송명체 (진지 궁서 짤방체)</option>
+            <option value="'Hahmlet', serif">함렛체 (빈티지 활자 감성)</option>
+            <option value="'Dokdo', cursive">독도체 (거친 붓터치 캘리)</option>
+          </optgroup>
+          <optgroup label="깔끔 / 모던 고딕체">
+            <option value="'Noto Sans KR', sans-serif" selected>Noto Sans KR (깔끔 표준 고딕)</option>
+            <option value="'Nanum Gothic', sans-serif">나눔고딕 (친근하고 반듯함)</option>
+            <option value="'Gowun Dodum', sans-serif">고운 돋움체 (차분하고 정갈함)</option>
+            <option value="'Sunflower', sans-serif">해바라기체 (단정 감성 고딕)</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- 밈 퀵 프리셋 칩 -->
+      <div class="meme-chips-header">
+        <h2 class="panel-title">인기 밈 문구 추천</h2>
+      </div>
+      <div class="meme-chips" id="memeChips">
+        <button class="chip-btn" data-text="칼퇴각 🚀" type="button">칼퇴각</button>
+        <button class="chip-btn" data-text="퇴근 마렵다..." type="button">퇴근 마렵다</button>
+        <button class="chip-btn" data-text="월요병 치료제 💊" type="button">월요병</button>
+        <button class="chip-btn" data-text="아무것도 안하고 싶다 🛌" type="button">아무것도 안해</button>
+        <button class="chip-btn" data-text="오늘도 행복해 🥰" type="button">행복해</button>
+        <button class="chip-btn" data-text="뿌듯함 MAX ✨" type="button">뿌듯</button>
+        <button class="chip-btn" data-text="극 대 노 💢" type="button">극대노</button>
+        <button class="chip-btn" data-text="감동실화 😭" type="button">감동</button>
+      </div>
+
+      <!-- 문구 입력 및 부분 글자색 지정 도구 -->
+      <label class="field-label" for="textInput">문구 입력</label>
+      <div class="text-format-bar">
+        <span class="format-hint">드래그한 글자만 색상 변경:</span>
+        <div class="inline-color-chips" id="inlineColorChips">
+          <button class="cpre mini-cpre" data-color="#ff4444" title="빨강" type="button"
+            style="background:#ff4444"></button>
+          <button class="cpre mini-cpre" data-color="#ffdd00" title="노랑" type="button"
+            style="background:#ffdd00"></button>
+          <button class="cpre mini-cpre" data-color="#44aaff" title="파랑" type="button"
+            style="background:#44aaff"></button>
+          <button class="cpre mini-cpre" data-color="#44dd44" title="초록" type="button"
+            style="background:#44dd44"></button>
+          <button class="cpre mini-cpre" data-color="#ff4081" title="핑크" type="button"
+            style="background:#ff4081"></button>
+          <button class="cpre mini-cpre" data-color="#ffffff" title="흰색" type="button"
+            style="background:#fff;border:1px solid #ddd"></button>
+          <button class="cpre mini-cpre" data-color="#000000" title="검정" type="button" style="background:#000"></button>
+        </div>
+      </div>
+      <textarea id="textInput" class="text-area" rows="3" placeholder="여기에 문구를 입력하세요...&#10[특정단어](#색상코드) 지원"></textarea>
+
+      <!-- 글자 크기 -->
+      <label class="field-label" for="fontSize">기본 글자 크기 <span id="fontSizeVal" class="field-val">32</span></label>
+      <input type="range" id="fontSize" min="12" max="80" value="32" class="slider">
+
+      <!-- 기본 글자 색상 -->
+      <label class="field-label" for="textColor">기본 글자 색상</label>
+      <div class="color-row">
+        <input type="color" id="textColor" value="#ffffff" class="color-input">
+        <span class="color-hex" id="colorHex">#ffffff</span>
+        <div class="color-presets" id="colorPresets">
+          <button class="cpre" data-color="#ffffff" type="button" aria-label="흰색"
+            style="background:#fff;border:1px solid #ddd"></button>
+          <button class="cpre" data-color="#000000" type="button" aria-label="검정" style="background:#000"></button>
+          <button class="cpre" data-color="#ff4444" type="button" aria-label="빨강" style="background:#ff4444"></button>
+          <button class="cpre" data-color="#ffdd00" type="button" aria-label="노랑" style="background:#ffdd00"></button>
+          <button class="cpre" data-color="#44aaff" type="button" aria-label="파랑" style="background:#44aaff"></button>
+          <button class="cpre" data-color="#44dd44" type="button" aria-label="초록" style="background:#44dd44"></button>
+        </div>
+      </div>
+
+      <!-- 문구 위치 프리셋 및 미세조정 -->
+      <label class="field-label">문구 위치 프리셋</label>
+      <div class="pos-grid">
+        <button class="pos-btn" data-pos="top" type="button">상단</button>
+        <button class="pos-btn active" data-pos="center" type="button">중앙</button>
+        <button class="pos-btn" data-pos="bottom" type="button">하단</button>
+      </div>
+
+      <label class="field-label" for="textY">세로 미세조정 <span id="textYVal" class="field-val">50%</span></label>
+      <input type="range" id="textY" min="5" max="95" value="50" class="slider">
+
+      <label class="field-label" for="textX">가로 미세조정 <span id="textXVal" class="field-val">50%</span></label>
+      <input type="range" id="textX" min="5" max="95" value="50" class="slider">
+
+      <!-- 스티커 & 소품 오버레이 (40종 & 카테고리 탭) -->
+      <div class="divider"></div>
+      <div class="sticker-header-row">
+        <h2 class="panel-title">귀여운 스티커 (40종)</h2>
+      </div>
+      <div class="sticker-tabs" id="stickerTabs">
+        <button class="stk-tab active" data-cat="all" type="button">전체</button>
+        <button class="stk-tab" data-cat="prop" type="button">소품</button>
+        <button class="stk-tab" data-cat="effect" type="button">효과</button>
+        <button class="stk-tab" data-cat="emotion" type="button">감정</button>
+        <button class="stk-tab" data-cat="food" type="button">음식</button>
+        <button class="stk-tab" data-cat="meme" type="button">짤방</button>
+      </div>
+      <div class="sticker-grid" id="stickerRow">
+        <!-- 소품 (8종) -->
+        <button class="stk-btn" data-cat="prop" data-stk="😎" type="button" title="선글라스">😎 썬글</button>
+        <button class="stk-btn" data-cat="prop" data-stk="👑" type="button" title="왕관">👑 왕관</button>
+        <button class="stk-btn" data-cat="prop" data-stk="🎀" type="button" title="리본">🎀 리본</button>
+        <button class="stk-btn" data-cat="prop" data-stk="🎓" type="button" title="학사모">🎓 학사모</button>
+        <button class="stk-btn" data-cat="prop" data-stk="🧢" type="button" title="모자">🧢 모자</button>
+        <button class="stk-btn" data-cat="prop" data-stk="🎧" type="button" title="헤드폰">🎧 헤드폰</button>
+        <button class="stk-btn" data-cat="prop" data-stk="👓" type="button" title="안경">👓 안경</button>
+        <button class="stk-btn" data-cat="prop" data-stk="🪄" type="button" title="요술봉">🪄 요술봉</button>
+        <!-- 효과 (8종) -->
+        <button class="stk-btn" data-cat="effect" data-stk="✨" type="button" title="반짝이">✨ 반짝이</button>
+        <button class="stk-btn" data-cat="effect" data-stk="💖" type="button" title="하트">💖 하트</button>
+        <button class="stk-btn" data-cat="effect" data-stk="💧" type="button" title="땀방울">💧 땀방울</button>
+        <button class="stk-btn" data-cat="effect" data-stk="💢" type="button" title="분노">💢 분노</button>
+        <button class="stk-btn" data-cat="effect" data-stk="🔥" type="button" title="불꽃">🔥 불꽃</button>
+        <button class="stk-btn" data-cat="effect" data-stk="💨" type="button" title="휭">💨 휭</button>
+        <button class="stk-btn" data-cat="effect" data-stk="💥" type="button" title="쾅">💥 쾅</button>
+        <button class="stk-btn" data-cat="effect" data-stk="💤" type="button" title="졸림">💤 졸림</button>
+        <!-- 감정 (8종) -->
+        <button class="stk-btn" data-cat="emotion" data-stk="🥰" type="button" title="행복">🥰 행복</button>
+        <button class="stk-btn" data-cat="emotion" data-stk="🥺" type="button" title="눈물">🥺 눈물</button>
+        <button class="stk-btn" data-cat="emotion" data-stk="😭" type="button" title="오열">😭 오열</button>
+        <button class="stk-btn" data-cat="emotion" data-stk="😱" type="button" title="경악">😱 경악</button>
+        <button class="stk-btn" data-cat="emotion" data-stk="🤤" type="button" title="침흘림">🤤 침흘림</button>
+        <button class="stk-btn" data-cat="emotion" data-stk="😈" type="button" title="장난">😈 장난</button>
+        <button class="stk-btn" data-cat="emotion" data-stk="🥳" type="button" title="파티">🥳 파티</button>
+        <button class="stk-btn" data-cat="emotion" data-stk="😴" type="button" title="쿨쿨">😴 쿨쿨</button>
+        <!-- 음식 (8종) -->
+        <button class="stk-btn" data-cat="food" data-stk="🧀" type="button" title="치즈">🧀 치즈</button>
+        <button class="stk-btn" data-cat="food" data-stk="🥕" type="button" title="당근">🥕 당근</button>
+        <button class="stk-btn" data-cat="food" data-stk="☕" type="button" title="커피">☕ 커피</button>
+        <button class="stk-btn" data-cat="food" data-stk="🍺" type="button" title="맥주">🍺 맥주</button>
+        <button class="stk-btn" data-cat="food" data-stk="🍰" type="button" title="케이크">🍰 케익</button>
+        <button class="stk-btn" data-cat="food" data-stk="🍗" type="button" title="치킨">🍗 치킨</button>
+        <button class="stk-btn" data-cat="food" data-stk="🍕" type="button" title="피자">🍕 피자</button>
+        <button class="stk-btn" data-cat="food" data-stk="🍙" type="button" title="주먹밥">🍙 주먹밥</button>
+        <!-- 짤방 (8종) -->
+        <button class="stk-btn" data-cat="meme" data-stk="🚀" type="button" title="칼퇴">🚀 칼퇴</button>
+        <button class="stk-btn" data-cat="meme" data-stk="💊" type="button" title="영양제">💊 영양제</button>
+        <button class="stk-btn" data-cat="meme" data-stk="💰" type="button" title="돈다발">💰 돈다발</button>
+        <button class="stk-btn" data-cat="meme" data-stk="👍" type="button" title="최고">👍 따봉</button>
+        <button class="stk-btn" data-cat="meme" data-stk="💯" type="button" title="100점">💯 100점</button>
+        <button class="stk-btn" data-cat="meme" data-stk="🛌" type="button" title="눕방">🛌 눕방</button>
+        <button class="stk-btn" data-cat="meme" data-stk="🍀" type="button" title="클로버">🍀 행운</button>
+        <button class="stk-btn" data-cat="meme" data-stk="🌸" type="button" title="벚꽃">🌸 벚꽃</button>
+      </div>
+      <div id="activeStickersWrap" class="active-stickers" hidden>
+        <div class="active-stk-header">
+          <span class="active-stk-title">적용된 스티커 (<span id="activeStickerCount">0</span>)</span>
+          <button id="clearStickersBtn" class="clear-stk-all-btn" type="button" title="모든 스티커 한 번에 삭제">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+            <span>전체 삭제</span>
+          </button>
+        </div>
+        <div id="activeStickerChips" class="active-stk-chips" role="list"></div>
+        <!-- 선택한 스티커 크기 미세조절 슬라이더 -->
+        <div id="stkScaleControl" class="stk-scale-control" hidden>
+          <div class="stk-scale-header">
+            <span class="stk-scale-label">선택 스티커 크기</span>
+            <span id="stkScaleVal" class="field-val">44px</span>
+          </div>
+          <input type="range" id="stkScaleSlider" min="20" max="110" value="44" class="slider stk-scale-slider">
+        </div>
+      </div>
+
+      <!-- 말풍선 모양 및 색상 -->
+      <div class="divider"></div>
+      <h2 class="panel-title">말풍선 모양</h2>
+      <div class="bubble-grid" id="bubbleRow">
+        <button class="bub-btn active" data-bubble="none" type="button">없음</button>
+        <button class="bub-btn" data-bubble="speech" type="button">💬 기본</button>
+        <button class="bub-btn" data-bubble="round" type="button">🫧 둥근</button>
+        <button class="bub-btn" data-bubble="think" type="button">💭 생각</button>
+        <button class="bub-btn" data-bubble="shout" type="button">💥 외침</button>
+        <button class="bub-btn" data-bubble="square" type="button">⬛ 각진</button>
+        <button class="bub-btn" data-bubble="whisper" type="button">🗨️ 속삭임</button>
+      </div>
+
+      <div id="bubbleColorSection" class="bubble-color-section" hidden>
+        <label class="field-label" for="bubbleColor">말풍선 내부 색상</label>
+        <div class="color-row">
+          <input type="color" id="bubbleColor" value="#ffffff" class="color-input">
+          <span class="color-hex" id="bubbleColorHex">#ffffff</span>
+          <div class="color-presets" id="bubbleColorPresets">
+            <button class="cpre" data-color="#ffffff" type="button" aria-label="흰색"
+              style="background:#fff;border:1px solid #ddd"></button>
+            <button class="cpre" data-color="#fff9c4" type="button" aria-label="연노랑"
+              style="background:#fff9c4;border:1px solid #ddd"></button>
+            <button class="cpre" data-color="#f8bbd0" type="button" aria-label="연분홍"
+              style="background:#f8bbd0;border:1px solid #ddd"></button>
+            <button class="cpre" data-color="#b3e5fc" type="button" aria-label="연하늘"
+              style="background:#b3e5fc;border:1px solid #ddd"></button>
+            <button class="cpre" data-color="#263238" type="button" aria-label="다크" style="background:#263238"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 캔버스 여백 배경색 -->
+      <div class="divider"></div>
+      <label class="field-label" for="bgColor">캔버스 배경색 (여백 및 투명 영역에 적용)</label>
+      <div class="color-row">
+        <input type="color" id="bgColor" value="#f5f5f5" class="color-input">
+        <span class="color-hex" id="bgColorHex">#f5f5f5</span>
+        <div class="color-presets" id="bgColorPresets">
+          <button class="cpre" data-color="#f5f5f5" type="button" aria-label="밝은회색"
+            style="background:#f5f5f5;border:1px solid #ddd"></button>
+          <button class="cpre" data-color="#000000" type="button" aria-label="블랙" style="background:#000"></button>
+          <button class="cpre" data-color="#ededed" type="button" aria-label="그레이"
+            style="background:#ededed;border:1px solid #ccc"></button>
+          <button class="cpre" data-color="#fff3e0" type="button" aria-label="크림오렌지"
+            style="background:#fff3e0;border:1px solid #ddd"></button>
+          <button class="cpre" data-color="#e8f5e9" type="button" aria-label="연그린"
+            style="background:#e8f5e9;border:1px solid #ddd"></button>
+        </div>
+      </div>
+      <div class="transparent-toggle-card">
+        <label class="toggle-control" for="transparentBgCheck">
+          <input type="checkbox" id="transparentBgCheck">
+          <div class="toggle-text-block">
+            <div class="toggle-title-row">
+              <span class="toggle-title">여백 투명 배경 (PNG)</span>
+              <span class="toggle-badge">투명 저장</span>
+            </div>
+            <p class="toggle-desc">체크 시 여백에 배경색 대신<br> 투명 배경이 적용됩니다.</p>
+          </div>
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <!-- 웹페이지 푸터 (법적 면책 조항 및 교육 목적 명시) -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <div class="footer-badge-wrap">
+        <span class="footer-badge">비영리 교육/과제용</span>
+        <span class="footer-badge-sub">Non-Commercial Educational Project</span>
+      </div>
+      <p class="footer-disclaimer">
+        이 페이지는 교육/과제 목적으로 제작되었으며, 상업적으로 이용되지 않습니다. 본 이미지 중 일부는 생성형 AI를 활용하여 제작되었습니다.
+      </p>
+      <p class="footer-copyright">
+        &copy; 2026 또햄찌 공방. All Rights Reserved.
+      </p>
+    </div>
+  </footer>
+
+  <!-- 숨겨진 다운로드 캔버스 -->
+  <canvas id="downloadCanvas" style="display:none"></canvas>
+
+  <!-- 템플릿 오버레이 -->
+  <div id="templateOv" class="overlay" hidden>
+    <div class="ov-card ov-wide">
+      <div class="ov-header">
+        <h2>내 템플릿</h2>
+        <button id="closeTemplateOv" class="ov-close" type="button" aria-label="닫기">&times;</button>
+      </div>
+      <div id="templateList" class="template-list">
+        <p class="empty-msg">저장된 템플릿이 없습니다.</p>
+      </div>
+      <div class="ov-footer">
+        <button id="saveTemplateBtn" class="dl-btn" type="button">현재 상태 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JSON 오버레이 -->
+  <div id="jsonOv" class="overlay" hidden>
+    <div class="ov-card">
+      <div class="ov-header">
+        <h2>JSON 백업/복원</h2>
+        <button id="closeJsonOv" class="ov-close" type="button" aria-label="닫기">&times;</button>
+      </div>
+      <div class="json-section">
+        <button id="exportJson" class="dl-btn" type="button">JSON 내보내기</button>
+        <div class="divider"></div>
+        <label class="field-label" for="jsonInput">JSON 가져오기</label>
+        <textarea id="jsonInput" class="text-area" rows="6" placeholder='JSON 데이터를 붙여넣으세요...'></textarea>
+        <button id="importJson" class="dl-btn" type="button">가져오기</button>
+        <div id="jsonMsg" class="json-msg" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/hamster-data.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/templates.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>
