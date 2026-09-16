@@ -3,16 +3,16 @@
 var Editor = (function () {
 
   var HAMSTERS = [
-    { id: 'default', label: '기본', file: 'assets/hamsters/default.jpg' },
-    { id: 'happy', label: '행복', file: 'assets/hamsters/happy.jpg' },
-    { id: 'surprised', label: '놀람', file: 'assets/hamsters/surprised.jpg' },
-    { id: 'smile', label: '미소', file: 'assets/hamsters/smile.jpg' },
-    { id: 'sleepy', label: '졸림', file: 'assets/hamsters/sleepy.jpg' },
-    { id: 'sad', label: '슬픔', file: 'assets/hamsters/sad.jpg' },
-    { id: 'crying', label: '우는', file: 'assets/hamsters/crying.jpg' },
-    { id: 'angry', label: '화남', file: 'assets/hamsters/angry.jpg' },
-    { id: 'annoyed', label: '짜증', file: 'assets/hamsters/annoyed.jpg' },
-    { id: 'touched', label: '감동', file: 'assets/hamsters/touched.jpg' }
+    { id: 'default', label: '기본', file: 'assets/hamsters/default.jpg', transparentFile: 'assets/hamsters/default_transparent.png' },
+    { id: 'happy', label: '행복', file: 'assets/hamsters/happy.jpg', transparentFile: 'assets/hamsters/happy_transparent.png' },
+    { id: 'surprised', label: '놀람', file: 'assets/hamsters/surprised.jpg', transparentFile: 'assets/hamsters/surprised_transparent.png' },
+    { id: 'smile', label: '미소', file: 'assets/hamsters/smile.jpg', transparentFile: 'assets/hamsters/smile_transparent.png' },
+    { id: 'sleepy', label: '졸림', file: 'assets/hamsters/sleepy.jpg', transparentFile: 'assets/hamsters/sleepy_transparent.png' },
+    { id: 'sad', label: '슬픔', file: 'assets/hamsters/sad.jpg', transparentFile: 'assets/hamsters/sad_transparent.png' },
+    { id: 'crying', label: '우는', file: 'assets/hamsters/crying.jpg', transparentFile: 'assets/hamsters/crying_transparent.png' },
+    { id: 'angry', label: '화남', file: 'assets/hamsters/angry.jpg', transparentFile: 'assets/hamsters/angry_transparent.png' },
+    { id: 'annoyed', label: '짜증', file: 'assets/hamsters/annoyed.jpg', transparentFile: 'assets/hamsters/annoyed_transparent.png' },
+    { id: 'touched', label: '감동', file: 'assets/hamsters/touched.jpg', transparentFile: 'assets/hamsters/touched_transparent.png' }
   ];
 
   /* 종합 편집 상태 */
@@ -464,20 +464,47 @@ var Editor = (function () {
           Utils.showToast(toastEl, '누끼를 적용할 사진이 없습니다. 먼저 사진을 업로드해주세요.', 'error');
           return;
         }
-        var tol = cutoutTolInput ? parseInt(cutoutTolInput.value, 10) : 35;
-        Utils.createCutoutImage(sourceImg, { tolerance: tol }, function (err, cutImg) {
-          if (err) {
-            Utils.showToast(toastEl, '누끼 처리 실패: ' + err, 'error');
+
+        /* 1. 기본/감동 등 프리셋 햄스터인 경우: 원본 훼손 0%의 고화질 투명 PNG 우선 로드 */
+        if (state.hamsterId && state.hamsterId !== 'custom') {
+          var h = HAMSTERS.find(function (item) { return item.id === state.hamsterId; });
+          if (h && h.transparentFile) {
+            Utils.loadImageFromUrl(h.transparentFile, function (err, transImg) {
+              if (!err && transImg) {
+                state.originalImage = sourceImg;
+                state.image = transImg;
+                state.imageDataUrl = transImg.src;
+                if (revertCutoutBtn) revertCutoutBtn.disabled = false;
+                renderPreview();
+                pushHistory();
+                Utils.showToast(toastEl, '🪄 배경 투명화(누끼)가 성공적으로 적용되었습니다!', 'success');
+                return;
+              }
+              runAlgorithmicCutout();
+            });
             return;
           }
-          state.originalImage = sourceImg;
-          state.image = cutImg;
-          state.imageDataUrl = cutImg.src;
-          if (revertCutoutBtn) revertCutoutBtn.disabled = false;
-          renderPreview();
-          pushHistory();
-          Utils.showToast(toastEl, '🪄 배경 투명화(누끼)가 성공적으로 적용되었습니다!', 'success');
-        });
+        }
+
+        /* 2. 사용자 업로드 이미지의 경우: 지능형 경계선 누끼 알고리즘 실행 */
+        runAlgorithmicCutout();
+
+        function runAlgorithmicCutout() {
+          var tol = cutoutTolInput ? parseInt(cutoutTolInput.value, 10) : 35;
+          Utils.createCutoutImage(sourceImg, { tolerance: tol }, function (err, cutImg) {
+            if (err) {
+              Utils.showToast(toastEl, '누끼 처리 실패: ' + err, 'error');
+              return;
+            }
+            state.originalImage = sourceImg;
+            state.image = cutImg;
+            state.imageDataUrl = cutImg.src;
+            if (revertCutoutBtn) revertCutoutBtn.disabled = false;
+            renderPreview();
+            pushHistory();
+            Utils.showToast(toastEl, '🪄 배경 투명화(누끼)가 성공적으로 적용되었습니다!', 'success');
+          });
+        }
       });
     }
 
