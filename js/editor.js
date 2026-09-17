@@ -74,6 +74,8 @@ var Editor = (function () {
   var textItemsChips, addTextItemBtn, deleteTextItemBtn;
   var targetSizeSection, targetSizeDescBadge, customTargetKbInput;
   var selectedStickerId = null;
+  var currentFormat = 'compressed';
+  var currentResolution = 1080;
 
   var hamsterImages = {}; /* 고성능 이미지 캐시 */
 
@@ -612,6 +614,43 @@ var Editor = (function () {
     }
   }
 
+  /* 사진 맞춤 모드 UI 설명 갱신 헬퍼 (모듈 스코프 정의) */
+  function updateFitModeUi() {
+    var isCover = state.fitMode === 'cover';
+    if (fitCoverBtn) fitCoverBtn.classList.toggle('active', isCover);
+    if (fitContainBtn) fitContainBtn.classList.toggle('active', !isCover);
+    if (fitModeDesc) {
+      var svgIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> ';
+      if (isCover) {
+        fitModeDesc.innerHTML = svgIcon + '<span><strong>채우기 모드</strong>: 사진이 여백 없이 프레임을 꽉 채웁니다. <br>마우스 드래그로 노출 위치를 맞추세요.</span>';
+      } else {
+        fitModeDesc.innerHTML = svgIcon + '<span><strong>맞춤 모드</strong>: 사진 전체가 표시되며, 남는 여백은 <br>아래 [캔버스 배경색]으로 채워집니다.</span>';
+      }
+    }
+  }
+
+  /* 목표 용량(KB) 설정 및 UI 제어 헬퍼 (모듈 스코프 정의) */
+  function updateTargetSizeUi(kb) {
+    var targetK = Math.max(30, Math.min(20480, parseInt(kb, 10) || 500));
+    state.targetKB = targetK;
+    if (customTargetKbInput && document.activeElement !== customTargetKbInput) {
+      customTargetKbInput.value = targetK;
+    }
+    var str = targetK >= 1024 ? ((targetK / 1024) % 1 === 0 ? (targetK / 1024) : (targetK / 1024).toFixed(1)) + ' MB' : targetK + ' KB';
+    if (targetSizeDescBadge) {
+      targetSizeDescBadge.textContent = '최대 ' + str + ' 맞춤';
+    }
+    var presetBtns = document.querySelectorAll('.target-preset-btn');
+    presetBtns.forEach(function (btn) {
+      var bKb = parseInt(btn.dataset.kb, 10);
+      btn.classList.toggle('active', bKb === targetK);
+    });
+    var mainDownloadText = document.getElementById('mainDownloadText');
+    if (currentFormat === 'compressed' && mainDownloadText) {
+      mainDownloadText.textContent = '목표 ' + str + ' 최적화 다운로드';
+    }
+  }
+
   /* --- UI 컨트롤 이벤트 바인딩 --- */
   function bindControls() {
     /* 실행 취소 & 다시 실행 버튼 */
@@ -633,21 +672,6 @@ var Editor = (function () {
         pushHistory();
         Utils.showToast(toastEl, '이미지가 제거되었습니다.', 'success');
       });
-    }
-
-    /* 사진 맞춤 모드 UI 설명 갱신 헬퍼 */
-    function updateFitModeUi() {
-      var isCover = state.fitMode === 'cover';
-      if (fitCoverBtn) fitCoverBtn.classList.toggle('active', isCover);
-      if (fitContainBtn) fitContainBtn.classList.toggle('active', !isCover);
-      if (fitModeDesc) {
-        var svgIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> ';
-        if (isCover) {
-          fitModeDesc.innerHTML = svgIcon + '<span><strong>채우기 모드</strong>: 사진이 여백 없이 프레임을 꽉 채웁니다. <br>마우스 드래그로 노출 위치를 맞추세요.</span>';
-        } else {
-          fitModeDesc.innerHTML = svgIcon + '<span><strong>맞춤 모드</strong>: 사진 전체가 표시되며, 남는 여백은 <br>아래 [캔버스 배경색]으로 채워집니다.</span>';
-        }
-      }
     }
 
     /* 이미지 맞춤 모드 토글 (Cover vs Contain) */
@@ -1252,8 +1276,8 @@ var Editor = (function () {
     }
 
     /* 저장 포맷 & 해상도 선택기 (슬라이딩 글라이더 & 4K UHD 지원) */
-    var currentFormat = 'compressed';
-    var currentResolution = 1080;
+    currentFormat = 'compressed';
+    currentResolution = 1080;
     var formatSelector = document.getElementById('exportFormatSelector');
     var mainDownloadBtn = document.getElementById('mainDownloadBtn');
     var mainDownloadText = document.getElementById('mainDownloadText');
@@ -1283,27 +1307,6 @@ var Editor = (function () {
 
       apply();
       requestAnimationFrame(apply);
-    }
-
-    /* 목표 용량(KB) 설정 및 UI 제어 헬퍼 */
-    function updateTargetSizeUi(kb) {
-      var targetK = Math.max(30, Math.min(20480, parseInt(kb, 10) || 500));
-      state.targetKB = targetK;
-      if (customTargetKbInput && document.activeElement !== customTargetKbInput) {
-        customTargetKbInput.value = targetK;
-      }
-      var str = targetK >= 1024 ? ((targetK / 1024) % 1 === 0 ? (targetK / 1024) : (targetK / 1024).toFixed(1)) + ' MB' : targetK + ' KB';
-      if (targetSizeDescBadge) {
-        targetSizeDescBadge.textContent = '최대 ' + str + ' 맞춤';
-      }
-      var presetBtns = document.querySelectorAll('.target-preset-btn');
-      presetBtns.forEach(function (btn) {
-        var bKb = parseInt(btn.dataset.kb, 10);
-        btn.classList.toggle('active', bKb === targetK);
-      });
-      if (currentFormat === 'compressed' && mainDownloadText) {
-        mainDownloadText.textContent = '목표 ' + str + ' 최적화 다운로드';
-      }
     }
 
     var targetPresets = document.getElementById('targetSizePresets');
