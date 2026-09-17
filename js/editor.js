@@ -66,7 +66,7 @@ var Editor = (function () {
   var fitCoverBtn, fitContainBtn, fitModeDesc, imgZoomInput, imgZoomVal, resetPanBtn;
   var fontFamilySelect, undoBtn, redoBtn, activeStickersWrap;
   var textItemsChips, addTextItemBtn, deleteTextItemBtn;
-  var canvasSelectionOverlay, selBoundingBox, selTag, selTailBtn, selTailText, selDelBtn;
+  var canvasSelectionOverlay, selBoundingBox, selDelBtn;
   var selectedStickerId = null;
 
   var hamsterImages = {}; /* 고성능 이미지 캐시 */
@@ -145,9 +145,6 @@ var Editor = (function () {
     deleteTextItemBtn = document.getElementById('deleteTextItemBtn');
     canvasSelectionOverlay = document.getElementById('canvasSelectionOverlay');
     selBoundingBox = document.getElementById('selBoundingBox');
-    selTag = document.getElementById('selTag');
-    selTailBtn = document.getElementById('selTailBtn');
-    selTailText = document.getElementById('selTailText');
     selDelBtn = document.getElementById('selDelBtn');
   }
 
@@ -371,6 +368,23 @@ var Editor = (function () {
     }
   }
 
+  /* 말풍선 배치 위치에 따른 피사체(중앙 50, 55) 지향 꼬리 방향 자동 계산 */
+  function getAutoTailDirection(x, y) {
+    if (y < 42) {
+      if (x < 42) return 'bottom-right';
+      if (x > 58) return 'bottom-left';
+      return 'bottom-center';
+    } else if (y > 58) {
+      if (x < 42) return 'top-right';
+      if (x > 58) return 'top-left';
+      return 'top-center';
+    } else {
+      if (x < 45) return 'right';
+      if (x > 55) return 'left';
+      return 'bottom-left';
+    }
+  }
+
   function getTailShortLabel(tail) {
     var map = {
       'bottom-left': '↙ 꼬리',
@@ -405,9 +419,6 @@ var Editor = (function () {
   function updateCanvasSelectionOverlay() {
     var overlay = document.getElementById('canvasSelectionOverlay');
     var boxEl = document.getElementById('selBoundingBox');
-    var tagEl = document.getElementById('selTag');
-    var tailBtn = document.getElementById('selTailBtn');
-    var tailText = document.getElementById('selTailText');
     if (!overlay || !boxEl) return;
 
     if (!previewCanvas) {
@@ -436,8 +447,6 @@ var Editor = (function () {
       boxEl.style.top = Math.round(sb.y * scaleY) + 'px';
       boxEl.style.width = Math.round(sb.w * scaleX) + 'px';
       boxEl.style.height = Math.round(sb.h * scaleY) + 'px';
-      if (tagEl) tagEl.textContent = '스티커';
-      if (tailBtn) tailBtn.hidden = true;
       overlay.hidden = false;
       return;
     }
@@ -449,23 +458,10 @@ var Editor = (function () {
         overlay.hidden = true;
         return;
       }
-      var item = tb.item || getActiveTextItem();
       boxEl.style.left = Math.round(tb.x * scaleX) + 'px';
       boxEl.style.top = Math.round(tb.y * scaleY) + 'px';
       boxEl.style.width = Math.round(tb.w * scaleX) + 'px';
       boxEl.style.height = Math.round(tb.h * scaleY) + 'px';
-
-      var itemIdx = (state.textItems || []).findIndex(function (t) { return t.id === item.id; });
-      if (tagEl) tagEl.textContent = '말풍선 ' + (itemIdx + 1);
-
-      if (tailBtn) {
-        if (item.bubble && item.bubble !== 'none') {
-          tailBtn.hidden = false;
-          if (tailText) tailText.textContent = getTailShortLabel(item.bubbleTail || 'bottom-left');
-        } else {
-          tailBtn.hidden = true;
-        }
-      }
       overlay.hidden = false;
       return;
     }
@@ -994,6 +990,18 @@ var Editor = (function () {
         state.textY = yVal;
         textYInput.value = yVal;
         textYVal.textContent = yVal + '%';
+
+        /* 꼬리 방향 자동 배치 (중앙 피사체 지향) */
+        if (activeItem.bubble && activeItem.bubble !== 'none' && activeItem.bubbleTail !== 'none') {
+          var autoTail = getAutoTailDirection(activeItem.textX, yVal);
+          activeItem.bubbleTail = autoTail;
+          state.bubbleTail = autoTail;
+          var allTailBtns = document.querySelectorAll('#tailDirRow .tail-btn');
+          allTailBtns.forEach(function (b) {
+            b.classList.toggle('active', b.dataset.tail === autoTail);
+          });
+        }
+
         renderPreview();
         updateCanvasSelectionOverlay();
         pushHistory();
@@ -1007,6 +1015,19 @@ var Editor = (function () {
       state.textY = activeItem.textY;
       textYVal.textContent = state.textY + '%';
       document.querySelectorAll('.pos-btn').forEach(function (b) { b.classList.remove('active'); });
+
+      if (activeItem.bubble && activeItem.bubble !== 'none' && activeItem.bubbleTail !== 'none') {
+        var autoTail = getAutoTailDirection(activeItem.textX, activeItem.textY);
+        if (activeItem.bubbleTail !== autoTail) {
+          activeItem.bubbleTail = autoTail;
+          state.bubbleTail = autoTail;
+          var allTailBtns = document.querySelectorAll('#tailDirRow .tail-btn');
+          allTailBtns.forEach(function (b) {
+            b.classList.toggle('active', b.dataset.tail === autoTail);
+          });
+        }
+      }
+
       renderPreview();
       updateCanvasSelectionOverlay();
     });
@@ -1018,6 +1039,19 @@ var Editor = (function () {
       activeItem.textX = parseInt(e.target.value, 10);
       state.textX = activeItem.textX;
       textXVal.textContent = state.textX + '%';
+
+      if (activeItem.bubble && activeItem.bubble !== 'none' && activeItem.bubbleTail !== 'none') {
+        var autoTail = getAutoTailDirection(activeItem.textX, activeItem.textY);
+        if (activeItem.bubbleTail !== autoTail) {
+          activeItem.bubbleTail = autoTail;
+          state.bubbleTail = autoTail;
+          var allTailBtns = document.querySelectorAll('#tailDirRow .tail-btn');
+          allTailBtns.forEach(function (b) {
+            b.classList.toggle('active', b.dataset.tail === autoTail);
+          });
+        }
+      }
+
       renderPreview();
       updateCanvasSelectionOverlay();
     });
@@ -1035,13 +1069,7 @@ var Editor = (function () {
       });
     }
 
-    /* 인-캔버스 오버레이 빠른 액션 버튼 */
-    if (selTailBtn) {
-      selTailBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        cycleActiveTail();
-      });
-    }
+    /* 인-캔버스 선택 요소 우상단 삭제 버튼 */
     if (selDelBtn) {
       selDelBtn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -1471,6 +1499,17 @@ var Editor = (function () {
     var uploadBtnEl = document.querySelector('.upload-btn');
     var dragDropOv = document.getElementById('dragDropOverlay');
 
+    function isRealFileDrag(e) {
+      if (dragTarget) return false;
+      if (!e.dataTransfer) return false;
+      var types = e.dataTransfer.types;
+      if (!types || types.length === 0) return false;
+      for (var i = 0; i < types.length; i++) {
+        if (types[i] === 'Files') return true;
+      }
+      return false;
+    }
+
     var targets = [
       { el: previewWrapEl, isWrap: true },
       { el: uploadBtnEl, isWrap: false }
@@ -1482,6 +1521,7 @@ var Editor = (function () {
       var dragCounter = 0;
 
       el.addEventListener('dragenter', function (e) {
+        if (!isRealFileDrag(e)) return;
         e.preventDefault();
         e.stopPropagation();
         dragCounter++;
@@ -1492,6 +1532,7 @@ var Editor = (function () {
       });
 
       el.addEventListener('dragover', function (e) {
+        if (!isRealFileDrag(e)) return;
         e.preventDefault();
         e.stopPropagation();
         if (e.dataTransfer) {
@@ -1500,6 +1541,7 @@ var Editor = (function () {
       });
 
       el.addEventListener('dragleave', function (e) {
+        if (!isRealFileDrag(e)) return;
         e.preventDefault();
         e.stopPropagation();
         dragCounter--;
@@ -1513,6 +1555,7 @@ var Editor = (function () {
       });
 
       el.addEventListener('drop', function (e) {
+        if (!isRealFileDrag(e)) return;
         e.preventDefault();
         e.stopPropagation();
         dragCounter = 0;
@@ -1527,12 +1570,14 @@ var Editor = (function () {
       });
     });
 
-    /* 전역 드래그 시 브라우저 기본 파일 열기 동작 방지 */
+    /* 전역 드래그 시 브라우저 기본 파일 열기 동작 방지 (실제 파일 드롭인 경우만) */
     window.addEventListener('dragover', function (e) {
-      e.preventDefault();
+      if (isRealFileDrag(e)) {
+        e.preventDefault();
+      }
     }, false);
     window.addEventListener('drop', function (e) {
-      if (!e.target.closest('#previewWrap') && !e.target.closest('.upload-btn')) {
+      if (isRealFileDrag(e) && !e.target.closest('#previewWrap') && !e.target.closest('.upload-btn')) {
         e.preventDefault();
       }
     }, false);
@@ -1585,7 +1630,7 @@ var Editor = (function () {
         var tb = allTextBounds[t];
         var margin = 12;
         if (pt.x >= tb.x - margin && pt.x <= tb.x + tb.w + margin &&
-            pt.y >= tb.y - margin && pt.y <= tb.y + tb.h + margin) {
+          pt.y >= tb.y - margin && pt.y <= tb.y + tb.h + margin) {
           isOverText = true;
           break;
         }
@@ -1636,7 +1681,7 @@ var Editor = (function () {
         var tb = allTextBounds[t];
         var margin = 12;
         if (pt.x >= tb.x - margin && pt.x <= tb.x + tb.w + margin &&
-            pt.y >= tb.y - margin && pt.y <= tb.y + tb.h + margin) {
+          pt.y >= tb.y - margin && pt.y <= tb.y + tb.h + margin) {
           dragTarget = 'text';
           selectedStickerId = null;
           selectTextItem(tb.id);
@@ -1692,6 +1737,20 @@ var Editor = (function () {
           textXVal.textContent = newX + '%';
           textYInput.value = newY;
           textYVal.textContent = newY + '%';
+
+          /* 말풍선 꼬리 자동 배치: 드래그 위치에 따라 피사체(중앙)를 향하도록 자동 계산 */
+          if (activeItem.bubble && activeItem.bubble !== 'none' && activeItem.bubbleTail !== 'none') {
+            var autoTail = getAutoTailDirection(newX, newY);
+            if (activeItem.bubbleTail !== autoTail) {
+              activeItem.bubbleTail = autoTail;
+              state.bubbleTail = autoTail;
+              var allTailBtns = document.querySelectorAll('#tailDirRow .tail-btn');
+              allTailBtns.forEach(function (b) {
+                b.classList.toggle('active', b.dataset.tail === autoTail);
+              });
+            }
+          }
+
           document.querySelectorAll('.pos-btn').forEach(function (b) { b.classList.remove('active'); });
           scheduleRender();
           updateCanvasSelectionOverlay();
@@ -1774,6 +1833,11 @@ var Editor = (function () {
     previewCanvas.addEventListener('touchstart', onDragStart, { passive: false });
     window.addEventListener('touchmove', onDragMove, { passive: false });
     window.addEventListener('touchend', onDragEnd);
+
+    previewCanvas.addEventListener('dragstart', function (e) { e.preventDefault(); });
+    if (canvasSelectionOverlay) {
+      canvasSelectionOverlay.addEventListener('dragstart', function (e) { e.preventDefault(); });
+    }
   }
 
   /* --- UI 요소와 상태 동기화 --- */

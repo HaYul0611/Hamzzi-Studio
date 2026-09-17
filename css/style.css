@@ -2203,48 +2203,63 @@ body {
   color: var(--text-muted);
 }
 
-/* === 글자 크기 숫자 입력창 === */
-.field-label-row {
+/* === 글자 크기 숫자 입력창 (인라인 배지 스타일) === */
+.field-label-row.font-size-label-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
+  margin: 14px 0 6px;
 }
 
-.num-input-wrap {
+.font-size-label {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 2px 6px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
 }
 
-.num-input {
-  width: 44px;
+.font-size-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--accent-light);
+  border: 1px solid rgba(255, 112, 67, 0.35);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+  box-shadow: 0 1px 3px rgba(255, 112, 67, 0.08);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.font-size-badge:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  background: #ffffff;
+}
+
+.font-size-badge .num-input {
+  width: 32px;
   border: none;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--accent-hover);
   font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: right;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-align: center;
   outline: none;
+  padding: 0;
   -moz-appearance: textfield;
 }
 
-.num-input::-webkit-outer-spin-button,
-.num-input::-webkit-inner-spin-button {
+.font-size-badge .num-input::-webkit-outer-spin-button,
+.font-size-badge .num-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-.num-unit {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-weight: 500;
+.font-size-badge .num-unit {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 /* === 다중 문구 & 말풍선 관리 툴바 === */
@@ -2385,6 +2400,8 @@ body {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
   z-index: 15;
 }
 
@@ -2395,84 +2412,40 @@ body {
 .sel-bounding-box {
   position: absolute;
   border: 2px dashed var(--accent);
-  border-radius: 6px;
-  background: rgba(255, 107, 107, 0.04);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 0 4px 12px rgba(0, 0, 0, 0.14);
-  pointer-events: auto;
-  cursor: grab;
-  transition: border-color 0.15s ease;
-}
-
-.sel-bounding-box:active {
-  cursor: grabbing;
-}
-
-.sel-tag {
-  position: absolute;
-  top: -24px;
-  left: 0;
-  background: var(--accent);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 4px;
-  white-space: nowrap;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
-  pointer-events: none;
-}
-
-.sel-actions {
-  position: absolute;
-  top: -28px;
-  right: -4px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  pointer-events: auto;
-}
-
-.sel-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  height: 24px;
-  padding: 0 8px;
-  border: none;
-  border-radius: 12px;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
-  transition: transform 0.15s ease, background-color 0.15s ease;
-}
-
-.sel-btn:hover {
-  transform: scale(1.08);
-}
-
-.sel-tail-btn {
-  background: #23272d;
-  color: #ffffff;
-}
-
-.sel-tail-btn:hover {
-  background: #111418;
-}
-
-.sel-tail-btn[hidden] {
-  display: none !important;
+  border-radius: 8px;
+  background: rgba(255, 107, 107, 0.03);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85), 0 4px 14px rgba(0, 0, 0, 0.12);
+  pointer-events: none; /* 캔버스 클릭 및 드래그 인터랙션이 자연스럽게 통과 */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .sel-del-btn {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   background: #ff4757;
   color: #ffffff;
-  width: 24px;
-  padding: 0;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
   justify-content: center;
+  cursor: pointer;
+  pointer-events: auto; /* 삭제 버튼만 독립 클릭 가능 */
+  padding: 0;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  z-index: 5;
 }
 
 .sel-del-btn:hover {
+  transform: scale(1.18);
   background: #e84118;
+}
+
+.sel-del-btn:active {
+  transform: scale(0.95);
 }
