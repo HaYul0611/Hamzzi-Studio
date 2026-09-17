@@ -2188,27 +2188,87 @@ body {
 
 .ov-footer {
   margin-top: 14px;
-  text-align: center;
+}
+
+.tpl-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tpl-save-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tpl-name-input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  transition: var(--transition);
+}
+
+.tpl-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.tpl-save-btn {
+  white-space: nowrap;
+  padding: 8px 18px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.tpl-save-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.tpl-save-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-align: left;
+  line-height: 1.4;
+  margin: 0;
 }
 
 .template-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .empty-msg {
   text-align: center;
   color: var(--text-muted);
   font-size: 13px;
-  padding: 24px;
+  padding: 28px 16px;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border);
 }
 
 .tpl-card {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -2225,39 +2285,83 @@ body {
   overflow: hidden;
 }
 
+.tpl-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .tpl-name {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .tpl-meta {
-  font-size: 11px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+.tpl-meta-spec {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.tpl-meta-sep {
+  color: var(--border);
+}
+
+.tpl-meta-date {
   color: var(--text-muted);
+}
+
+.tpl-meta-updated {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .tpl-actions {
   display: flex;
   gap: 5px;
+  align-items: center;
 }
 
 .tpl-btn {
-  padding: 5px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   transition: var(--transition);
+  white-space: nowrap;
 }
 
 .tpl-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
+  background: var(--accent-light);
+}
+
+.tpl-btn.primary {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+
+.tpl-btn.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .tpl-btn.danger {
@@ -2267,6 +2371,268 @@ body {
 
 .tpl-btn.danger:hover {
   background: var(--danger-bg);
+}
+
+/* 템플릿 인라인 이름 수정 폼 */
+.tpl-rename-box {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  align-items: center;
+}
+
+.tpl-rename-input {
+  flex: 1;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  outline: none;
+}
+
+/* ========================================================
+   JSON 백업/복원 섹션 스타일
+   ======================================================== */
+.json-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.json-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.json-block-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.json-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.json-block-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.json-block-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.json-btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.json-sub-btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  background: #ffffff;
+}
+
+.json-file-trigger-btn {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  background: #ffffff;
+}
+
+.json-mode-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.json-mode-title {
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+}
+
+.json-mode-opt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.json-textarea {
+  width: 100%;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  line-height: 1.4;
+}
+
+.json-import-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ========================================================
+   JSON 복원 결과 리치 알림 카드
+   ======================================================== */
+.json-result-box {
+  margin-top: 8px;
+  animation: toastFade 0.25s ease;
+}
+
+.json-result-card {
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.json-result-card.success {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.12);
+}
+
+.json-result-card.error {
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.12);
+}
+
+.json-res-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.json-res-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.json-res-title-wrap {
+  flex: 1;
+}
+
+.json-res-title {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #15803d;
+  display: block;
+}
+
+.json-result-card.error .json-res-title {
+  color: #b91c1c;
+}
+
+.json-res-badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+
+.json-res-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: #dcfce7;
+  color: #166534;
+}
+
+.json-res-badge.highlight {
+  background: #bbf7d0;
+  color: #14532d;
+  font-weight: 700;
+}
+
+.json-res-desc {
+  font-size: 12px;
+  color: #b91c1c;
+  margin-top: 3px;
+}
+
+.json-res-hint {
+  font-size: 11.5px;
+  color: #991b1b;
+  margin-top: 2px;
+}
+
+.json-res-body {
+  background: #ffffff;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  border: 1px solid #bbf7d0;
+}
+
+.json-res-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #166534;
+  margin-bottom: 6px;
+}
+
+.json-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.json-chip {
+  font-size: 11.5px;
+  font-weight: 600;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #166534;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+}
+
+.json-res-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.json-jump-btn {
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
+}
+
+.json-jump-btn:hover {
+  background: #15803d;
+  transform: translateY(-1px);
 }
 
 /* --- 11. 반응형 미디어 쿼리 --- */

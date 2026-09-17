@@ -22,28 +22,65 @@ var Templates = (function () {
     } catch (e) { /* silent */ }
   }
 
-  function create(state) {
+  function create(state, customName) {
     var tpl = stateToTemplate(state);
-    tpl.id = Utils.generateId();
-    tpl.name = state.text ? state.text.substring(0, 20) : '새 템플릿';
-    tpl.createdAt = Date.now();
+    tpl.id = (window.Utils && Utils.generateId) ? Utils.generateId() : ('tpl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
+
+    var trimmedName = customName ? String(customName).trim() : '';
+    if (trimmedName) {
+      tpl.name = trimmedName;
+    } else if (state.text && String(state.text).trim()) {
+      tpl.name = String(state.text).trim().substring(0, 20);
+    } else {
+      tpl.name = '새 템플릿';
+    }
+
+    var now = Date.now();
+    tpl.createdAt = now;
+    tpl.updatedAt = now;
+
     var all = loadAll();
     all.push(tpl);
     saveAll(all);
     return tpl;
   }
 
-  function update(id, state) {
+  function update(id, state, customName) {
     var all = loadAll();
     for (var i = 0; i < all.length; i++) {
       if (all[i].id === id) {
+        var prev = all[i];
         var updated = stateToTemplate(state);
         updated.id = id;
-        updated.name = state.text ? state.text.substring(0, 20) : all[i].name;
-        updated.createdAt = all[i].createdAt;
+
+        var trimmedName = customName ? String(customName).trim() : '';
+        if (trimmedName) {
+          updated.name = trimmedName;
+        } else {
+          updated.name = prev.name || (state.text ? String(state.text).trim().substring(0, 20) : '새 템플릿');
+        }
+
+        updated.createdAt = prev.createdAt || Date.now();
+        updated.updatedAt = Date.now();
         all[i] = updated;
         saveAll(all);
         return updated;
+      }
+    }
+    return null;
+  }
+
+  function rename(id, newName) {
+    var all = loadAll();
+    var trimmed = String(newName || '').trim();
+    if (!trimmed) return null;
+
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === id) {
+        all[i].name = trimmed;
+        all[i].updatedAt = Date.now();
+        saveAll(all);
+        return all[i];
       }
     }
     return null;
@@ -65,6 +102,7 @@ var Templates = (function () {
   }
 
   function stateToTemplate(state) {
+    var now = Date.now();
     return {
       id: '',
       name: '',
@@ -87,7 +125,8 @@ var Templates = (function () {
       fontFamily: state.fontFamily || "'Noto Sans KR', sans-serif",
       stickers: state.stickers || [],
       textItems: state.textItems ? JSON.parse(JSON.stringify(state.textItems)) : [],
-      createdAt: Date.now()
+      createdAt: now,
+      updatedAt: now
     };
   }
 
@@ -101,8 +140,9 @@ var Templates = (function () {
     return { ok: true };
   }
 
-  /* JSON import: 전체 검증 후 저장 */
-  function importJson(jsonStr) {
+  /* JSON import: 전체 검증 후 저장 (mode: 'merge' | 'replace') */
+  function importJson(jsonStr, mode) {
+    mode = mode || 'merge';
     var parsed;
     try {
       parsed = JSON.parse(jsonStr);
@@ -119,6 +159,10 @@ var Templates = (function () {
       return { ok: false, reason: 'JSON에 templates 배열이 없습니다.' };
     }
 
+    if (templates.length === 0) {
+      return { ok: false, reason: '가져올 템플릿 데이터가 비어 있습니다.' };
+    }
+
     /* 전체 먼저 검증 */
     for (var i = 0; i < templates.length; i++) {
       var v = validateTemplate(templates[i]);
@@ -127,9 +171,50 @@ var Templates = (function () {
       }
     }
 
-    /* 모두 통과 → 저장 */
-    saveAll(templates);
-    return { ok: true, count: templates.length };
+    var importedNames = [];
+    var now = Date.now();
+
+    // 템플릿 복제 및 타임스탬프 보정
+    var processed = templates.map(function (t, idx) {
+      var copy = Object.assign({}, t);
+      copy.name = copy.name || ('템플릿 ' + (idx + 1));
+      importedNames.push(copy.name);
+      if (!copy.createdAt) copy.createdAt = now;
+      if (!copy.updatedAt) copy.updatedAt = copy.createdAt;
+      return copy;
+    });
+
+    var finalCount = 0;
+    if (mode === 'replace') {
+      saveAll(processed);
+      finalCount = processed.length;
+    } else {
+      // merge (기존 목록에 추가)
+      var currentAll = loadAll();
+      var existingIds = {};
+      for (var k = 0; k < currentAll.length; k++) {
+        existingIds[currentAll[k].id] = true;
+      }
+
+      processed.forEach(function (t) {
+        // ID 중복 방지
+        if (existingIds[t.id]) {
+          t.id = (window.Utils && Utils.generateId) ? Utils.generateId() : ('tpl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
+        }
+        existingIds[t.id] = true;
+        currentAll.push(t);
+      });
+      saveAll(currentAll);
+      finalCount = currentAll.length;
+    }
+
+    return {
+      ok: true,
+      count: processed.length,
+      totalCount: finalCount,
+      importedNames: importedNames,
+      mode: mode
+    };
   }
 
   function exportJson() {
@@ -141,6 +226,7 @@ var Templates = (function () {
     loadAll: loadAll,
     create: create,
     update: update,
+    rename: rename,
     remove: remove,
     getById: getById,
     importJson: importJson,

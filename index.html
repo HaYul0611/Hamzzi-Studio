@@ -907,26 +907,73 @@
       <div id="templateList" class="template-list">
         <p class="empty-msg">저장된 템플릿이 없습니다.</p>
       </div>
-      <div class="ov-footer">
-        <button id="saveTemplateBtn" class="dl-btn" type="button">현재 상태 저장</button>
+      <div class="ov-footer tpl-footer">
+        <div class="tpl-save-form">
+          <input type="text" id="tplNameInput" class="text-input tpl-name-input" placeholder="새 템플릿 이름 (미입력 시 문구 자동 사용)"
+            maxlength="30" autocomplete="off" />
+          <button id="saveTemplateBtn" class="dl-btn tpl-save-btn" type="button">현재 상태 저장</button>
+        </div>
+        <p class="tpl-save-hint">💡 이름을 직접 지정하여 저장하고, 목록에서 언제든지 이름을 수정(Rename)하거나 최신 상태로 덮어쓸 수 있습니다.</p>
       </div>
     </div>
   </div>
 
   <!-- JSON 오버레이 -->
   <div id="jsonOv" class="overlay" hidden>
-    <div class="ov-card">
+    <div class="ov-card ov-wide">
       <div class="ov-header">
         <h2>JSON 백업/복원</h2>
         <button id="closeJsonOv" class="ov-close" type="button" aria-label="닫기">&times;</button>
       </div>
       <div class="json-section">
-        <button id="exportJson" class="dl-btn" type="button">JSON 내보내기</button>
+        <!-- 내보내기 섹션 -->
+        <div class="json-block">
+          <div class="json-block-header">
+            <span class="json-block-title">📤 템플릿 내보내기 (백업)</span>
+            <span class="json-block-desc">현재 저장된 모든 템플릿 데이터를 JSON 포맷으로 내보냅니다.</span>
+          </div>
+          <div class="json-btn-row">
+            <button id="exportJson" class="dl-btn" type="button">💾 JSON 파일 다운로드</button>
+            <button id="copyJsonBtn" class="tpl-btn json-sub-btn" type="button">📋 클립보드로 복사</button>
+          </div>
+        </div>
+
         <div class="divider"></div>
-        <label class="field-label" for="jsonInput">JSON 가져오기</label>
-        <textarea id="jsonInput" class="text-area" rows="6" placeholder='JSON 데이터를 붙여넣으세요...'></textarea>
-        <button id="importJson" class="dl-btn" type="button">가져오기</button>
-        <div id="jsonMsg" class="json-msg" hidden></div>
+
+        <!-- 가져오기 섹션 -->
+        <div class="json-block">
+          <div class="json-block-header">
+            <div class="json-title-row">
+              <span class="json-block-title">📥 템플릿 가져오기 (복원)</span>
+              <button id="triggerJsonFile" class="tpl-btn json-file-trigger-btn" type="button">📁 파일 열기 (.json)</button>
+              <input type="file" id="jsonFileInput" accept=".json,application/json" style="display:none;" />
+            </div>
+            <span class="json-block-desc">파일을 선택하거나 아래 입력창에 JSON 텍스트를 붙여넣으세요.</span>
+          </div>
+
+          <!-- 가져오기 방식 옵션 -->
+          <div class="json-mode-box">
+            <span class="json-mode-title">가져오기 방식:</span>
+            <label class="json-mode-opt">
+              <input type="radio" name="jsonImportMode" value="merge" checked />
+              <span>기존 목록에 추가(병합) <small class="text-accent font-bold">(권장)</small></span>
+            </label>
+            <label class="json-mode-opt">
+              <input type="radio" name="jsonImportMode" value="replace" />
+              <span>전체 덮어쓰기 <small class="text-danger font-bold">(기존 교체)</small></span>
+            </label>
+          </div>
+
+          <textarea id="jsonInput" class="text-area json-textarea" rows="4"
+            placeholder='JSON 데이터를 붙여넣거나 위의 [📁 파일 열기] 버튼을 누르세요...'></textarea>
+
+          <div class="json-import-actions">
+            <button id="importJson" class="dl-btn" type="button">템플릿 가져오기 실행</button>
+          </div>
+
+          <!-- 리치 결과 알림 카드 영역 -->
+          <div id="jsonResultArea" class="json-result-box" hidden></div>
+        </div>
       </div>
     </div>
   </div>
