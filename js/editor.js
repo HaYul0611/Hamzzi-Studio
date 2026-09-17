@@ -38,7 +38,8 @@ var Editor = (function () {
     transparentBg: false,
     originalImage: null, /* 누끼 복원용 원본 이미지 인스턴스 */
     selectedStickerId: null,
-    selectedTextItemId: 'bubble_1',
+    selectedTextItemId: null,
+    activeEditingTextId: 'bubble_1',
     stickers: [],        /* [{ id, icon, x, y, size }] */
     textItems: [
       {
@@ -66,7 +67,6 @@ var Editor = (function () {
   var fitCoverBtn, fitContainBtn, fitModeDesc, imgZoomInput, imgZoomVal, resetPanBtn;
   var fontFamilySelect, undoBtn, redoBtn, activeStickersWrap;
   var textItemsChips, addTextItemBtn, deleteTextItemBtn;
-  var canvasSelectionOverlay, selBoundingBox, selDelBtn;
   var selectedStickerId = null;
 
   var hamsterImages = {}; /* 고성능 이미지 캐시 */
@@ -143,9 +143,6 @@ var Editor = (function () {
     textItemsChips = document.getElementById('textItemsChips');
     addTextItemBtn = document.getElementById('addTextItemBtn');
     deleteTextItemBtn = document.getElementById('deleteTextItemBtn');
-    canvasSelectionOverlay = document.getElementById('canvasSelectionOverlay');
-    selBoundingBox = document.getElementById('selBoundingBox');
-    selDelBtn = document.getElementById('selDelBtn');
   }
 
   function getState() { return state; }
@@ -276,12 +273,12 @@ var Editor = (function () {
         bubbleTail: state.bubbleTail || 'bottom-left',
         fontFamily: state.fontFamily || "'Noto Sans KR', sans-serif"
       }];
-      state.selectedTextItemId = 'bubble_1';
     }
-    var item = state.textItems.find(function (t) { return t.id === state.selectedTextItemId; });
+    var targetId = state.selectedTextItemId || state.activeEditingTextId;
+    var item = state.textItems.find(function (t) { return t.id === targetId; });
     if (!item) {
       item = state.textItems[0];
-      state.selectedTextItemId = item.id;
+      state.activeEditingTextId = item.id;
     }
     return item;
   }
@@ -301,9 +298,13 @@ var Editor = (function () {
 
   function selectTextItem(id) {
     state.selectedTextItemId = id;
+    state.activeEditingTextId = id;
     selectedStickerId = null;
+    state.selectedStickerId = null;
     syncActiveTextItemToState();
     syncUiFromState();
+    renderTextItemsChips();
+    renderActiveStickersUi();
     renderPreview();
   }
 
@@ -344,7 +345,13 @@ var Editor = (function () {
       var first = items[0];
       first.text = '';
       first.bubble = 'none';
-      selectTextItem(first.id);
+      state.selectedTextItemId = null;
+      selectedStickerId = null;
+      state.selectedStickerId = null;
+      syncActiveTextItemToState();
+      syncUiFromState();
+      renderTextItemsChips();
+      renderActiveStickersUi();
       renderPreview();
       pushHistory();
       Utils.showToast(toastEl, '말풍선이 초기화되었습니다.', 'info');
@@ -354,8 +361,15 @@ var Editor = (function () {
     var idx = items.findIndex(function (t) { return t.id === id; });
     if (idx !== -1) {
       items.splice(idx, 1);
+      state.selectedTextItemId = null;
+      selectedStickerId = null;
+      state.selectedStickerId = null;
       var nextItem = items[Math.min(idx, items.length - 1)];
-      selectTextItem(nextItem.id);
+      state.activeEditingTextId = nextItem.id;
+      syncActiveTextItemToState();
+      syncUiFromState();
+      renderTextItemsChips();
+      renderActiveStickersUi();
       renderPreview();
       pushHistory();
       Utils.showToast(toastEl, '말풍선이 삭제되었습니다.', 'info');
@@ -417,56 +431,7 @@ var Editor = (function () {
   }
 
   function updateCanvasSelectionOverlay() {
-    var overlay = document.getElementById('canvasSelectionOverlay');
-    var boxEl = document.getElementById('selBoundingBox');
-    if (!overlay || !boxEl) return;
-
-    if (!previewCanvas) {
-      overlay.hidden = true;
-      return;
-    }
-
-    var rect = previewCanvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) {
-      overlay.hidden = true;
-      return;
-    }
-
-    var size = Utils.getOutputSize(state.ratio, 400);
-    var scaleX = rect.width / size.w;
-    var scaleY = rect.height / size.h;
-
-    if (selectedStickerId) {
-      var stkBounds = Renderer.getStickersBounds(state, 400);
-      var sb = stkBounds.find(function (item) { return item.id === selectedStickerId; });
-      if (!sb) {
-        overlay.hidden = true;
-        return;
-      }
-      boxEl.style.left = Math.round(sb.x * scaleX) + 'px';
-      boxEl.style.top = Math.round(sb.y * scaleY) + 'px';
-      boxEl.style.width = Math.round(sb.w * scaleX) + 'px';
-      boxEl.style.height = Math.round(sb.h * scaleY) + 'px';
-      overlay.hidden = false;
-      return;
-    }
-
-    if (state.selectedTextItemId) {
-      var allTextBounds = Renderer.getTextItemsBounds(state, 400);
-      var tb = allTextBounds.find(function (item) { return item.id === state.selectedTextItemId; });
-      if (!tb) {
-        overlay.hidden = true;
-        return;
-      }
-      boxEl.style.left = Math.round(tb.x * scaleX) + 'px';
-      boxEl.style.top = Math.round(tb.y * scaleY) + 'px';
-      boxEl.style.width = Math.round(tb.w * scaleX) + 'px';
-      boxEl.style.height = Math.round(tb.h * scaleY) + 'px';
-      overlay.hidden = false;
-      return;
-    }
-
-    overlay.hidden = true;
+    /* 하위 호환성 유지용 스텁: 이제 캔버스 자체에서 Renderer.drawSelectionOverlay로 직접 렌더링됩니다. */
   }
 
   function renderTextItemsChips() {
@@ -903,9 +868,19 @@ var Editor = (function () {
       state.text = e.target.value;
       renderTextItemsChips();
       renderPreview();
-      updateCanvasSelectionOverlay();
     });
     textInput.addEventListener('change', pushHistory);
+    textInput.addEventListener('focus', function () {
+      var activeItem = getActiveTextItem();
+      if (activeItem && state.selectedTextItemId !== activeItem.id) {
+        state.selectedTextItemId = activeItem.id;
+        state.selectedStickerId = null;
+        selectedStickerId = null;
+        renderTextItemsChips();
+        renderActiveStickersUi();
+        renderPreview();
+      }
+    });
 
     /* 글자 크기 (슬라이더 및 키보드 직접 입력) */
     if (fontSizeInput) {
@@ -1069,20 +1044,6 @@ var Editor = (function () {
       });
     }
 
-    /* 인-캔버스 선택 요소 우상단 삭제 버튼 */
-    if (selDelBtn) {
-      selDelBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        if (selectedStickerId) {
-          deleteStickerById(selectedStickerId);
-        } else if (state.selectedTextItemId) {
-          deleteSelectedTextItem();
-        }
-      });
-    }
-
-    window.addEventListener('resize', updateCanvasSelectionOverlay);
-
     /* 스티커 카테고리 탭 필터 */
     var stickerTabs = document.getElementById('stickerTabs');
     if (stickerTabs) {
@@ -1119,10 +1080,11 @@ var Editor = (function () {
         };
         state.stickers.push(newSticker);
         selectedStickerId = newSticker.id;
+        state.selectedStickerId = newSticker.id;
         state.selectedTextItemId = null;
         renderActiveStickersUi();
+        renderTextItemsChips();
         renderPreview();
-        updateCanvasSelectionOverlay();
         pushHistory();
         Utils.showToast(toastEl, icon + ' ' + getStickerName(icon) + ' 스티커가 추가되었습니다. 캔버스에서 드래그하여 배치하세요.', 'success');
       });
@@ -1134,11 +1096,11 @@ var Editor = (function () {
       clearStickersBtn.addEventListener('click', function () {
         state.stickers = [];
         selectedStickerId = null;
+        state.selectedStickerId = null;
         renderActiveStickersUi();
         renderPreview();
-        updateCanvasSelectionOverlay();
         pushHistory();
-        Utils.showToast(toastEl, '모든 스티커가 제거되었습니다.', 'success');
+        Utils.showToast(toastEl, '모든 스티커가 제거되었습니다.', 'info');
       });
     }
 
@@ -1608,6 +1570,16 @@ var Editor = (function () {
       if (dragTarget) return;
       var pt = getCanvasPoint(e.clientX, e.clientY);
 
+      /* 0. 우상단 X 삭제 버튼 호버 체크 */
+      var delBtnPt = Renderer.getDeleteButtonPoint(state, 400);
+      if (delBtnPt) {
+        var distToDel = Math.hypot(pt.x - delBtnPt.x, pt.y - delBtnPt.y);
+        if (distToDel <= delBtnPt.radius + 4) {
+          previewCanvas.style.cursor = 'pointer';
+          return;
+        }
+      }
+
       /* 1. 스티커 히트 체크 */
       var stkBounds = Renderer.getStickersBounds(state, 400);
       var isOverSticker = false;
@@ -1656,6 +1628,21 @@ var Editor = (function () {
       dragStartMouseX = pos.x;
       dragStartMouseY = pos.y;
 
+      /* 최우선순위 0: 우상단 X 삭제 버튼 클릭 판정 (클릭 시 즉시 삭제 및 선택 해제) */
+      var delBtnPt = Renderer.getDeleteButtonPoint(state, 400);
+      if (delBtnPt) {
+        var distToDel = Math.hypot(pt.x - delBtnPt.x, pt.y - delBtnPt.y);
+        if (distToDel <= delBtnPt.radius + 6) {
+          if (selectedStickerId) {
+            deleteStickerById(selectedStickerId);
+          } else if (state.selectedTextItemId) {
+            deleteSelectedTextItem();
+          }
+          if (e.cancelable) e.preventDefault();
+          return;
+        }
+      }
+
       /* 우선순위 1: 스티커 클릭 판정 */
       var stkBounds = Renderer.getStickersBounds(state, 400);
       for (var i = stkBounds.length - 1; i >= 0; i--) {
@@ -1664,12 +1651,14 @@ var Editor = (function () {
           dragTarget = 'sticker';
           activeStickerIndex = sb.index;
           selectedStickerId = state.stickers[sb.index].id;
+          state.selectedStickerId = selectedStickerId;
           state.selectedTextItemId = null;
           renderActiveStickersUi();
+          renderTextItemsChips();
+          renderPreview();
           dragStartStickerX = state.stickers[sb.index].x;
           dragStartStickerY = state.stickers[sb.index].y;
           previewCanvas.style.cursor = 'grabbing';
-          updateCanvasSelectionOverlay();
           if (e.cancelable) e.preventDefault();
           return;
         }
@@ -1684,22 +1673,38 @@ var Editor = (function () {
           pt.y >= tb.y - margin && pt.y <= tb.y + tb.h + margin) {
           dragTarget = 'text';
           selectedStickerId = null;
-          selectTextItem(tb.id);
+          state.selectedStickerId = null;
+          state.selectedTextItemId = tb.id;
+          state.activeEditingTextId = tb.id;
+          syncActiveTextItemToState();
+          syncUiFromState();
+          renderActiveStickersUi();
+          renderTextItemsChips();
+          renderPreview();
           var activeItem = getActiveTextItem();
           dragStartTextX = (activeItem.textX !== undefined) ? activeItem.textX : 50;
           dragStartTextY = (activeItem.textY !== undefined) ? activeItem.textY : 50;
           previewCanvas.style.cursor = 'grabbing';
-          updateCanvasSelectionOverlay();
           if (e.cancelable) e.preventDefault();
           return;
         }
       }
 
-      /* 스티커 및 말풍선 외 영역 클릭 시 스티커 선택 해제 */
-      if (selectedStickerId) {
+      /* 스티커 및 말풍선 외 빈 영역 클릭 시 모든 선택 해제 (단일 프레임 및 X 삭제버튼 숨김) */
+      var selectionChanged = false;
+      if (selectedStickerId || state.selectedStickerId) {
         selectedStickerId = null;
+        state.selectedStickerId = null;
+        selectionChanged = true;
         renderActiveStickersUi();
-        updateCanvasSelectionOverlay();
+      }
+      if (state.selectedTextItemId) {
+        state.selectedTextItemId = null;
+        selectionChanged = true;
+        renderTextItemsChips();
+      }
+      if (selectionChanged) {
+        renderPreview();
       }
 
       /* 우선순위 3: 이미지 영역 클릭 시 배경 사진 팬(Pan) 이동 */
@@ -1835,9 +1840,6 @@ var Editor = (function () {
     window.addEventListener('touchend', onDragEnd);
 
     previewCanvas.addEventListener('dragstart', function (e) { e.preventDefault(); });
-    if (canvasSelectionOverlay) {
-      canvasSelectionOverlay.addEventListener('dragstart', function (e) { e.preventDefault(); });
-    }
   }
 
   /* --- UI 요소와 상태 동기화 --- */
@@ -1954,7 +1956,10 @@ var Editor = (function () {
 
       chip.addEventListener('click', function () {
         selectedStickerId = s.id;
+        state.selectedStickerId = s.id;
+        state.selectedTextItemId = null;
         renderActiveStickersUi();
+        renderTextItemsChips();
         renderPreview();
       });
 
@@ -1987,6 +1992,7 @@ var Editor = (function () {
       var removed = state.stickers.splice(idx, 1)[0];
       if (selectedStickerId === id) {
         selectedStickerId = null;
+        state.selectedStickerId = null;
       }
       renderActiveStickersUi();
       renderPreview();

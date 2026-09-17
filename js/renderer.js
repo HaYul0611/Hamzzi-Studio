@@ -37,7 +37,7 @@ var Renderer = (function () {
 
     /* 3. 귀여운 스티커 및 소품 렌더링 */
     if (state.stickers && state.stickers.length > 0) {
-      drawStickers(ctx, state.stickers, W, H, state.selectedStickerId, outputWidth <= 600);
+      drawStickers(ctx, state.stickers, W, H);
     }
 
     /* 4. 문구 및 말풍선 레이아웃 통합 렌더링 (다중 말풍선 및 부분 글자색 지원) */
@@ -45,8 +45,13 @@ var Renderer = (function () {
     for (var ti = 0; ti < items.length; ti++) {
       var item = items[ti];
       if (item.text || (item.bubble && item.bubble !== 'none')) {
-        drawTextAndBubble(ctx, item, W, H, outputWidth <= 600, item.id === state.selectedTextItemId);
+        drawTextAndBubble(ctx, item, W, H);
       }
+    }
+
+    /* 5. 미리보기 화면 전용: 선택된 객체의 단일 통합 바운딩 프레임 및 우측 상단 X 삭제 버튼 */
+    if (outputWidth <= 600) {
+      drawSelectionOverlay(ctx, state, W, H);
     }
   }
 
@@ -147,20 +152,6 @@ var Renderer = (function () {
       ctx.shadowOffsetY = 2;
 
       ctx.fillText(s.icon, sx, sy);
-
-      /* 미리보기 화면에서 선택된 스티커 강조 표시 링 */
-      if (isPreview && selectedId && s.id === selectedId) {
-        ctx.save();
-        ctx.shadowColor = 'transparent';
-        ctx.strokeStyle = 'rgba(255, 107, 107, 0.9)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 3]);
-        var r = size * 0.65;
-        ctx.beginPath();
-        ctx.arc(sx, sy, r, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-      }
     }
     ctx.restore();
   }
@@ -344,22 +335,6 @@ var Renderer = (function () {
         }
       }
 
-      ctx.restore();
-    }
-
-    /* 미리보기 화면에서 선택된 말풍선 가이드 링/박스 */
-    if (isPreview && isSelected) {
-      ctx.save();
-      ctx.shadowColor = 'transparent';
-      ctx.strokeStyle = 'rgba(255, 107, 107, 0.9)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 3]);
-      if (layout.hasBubble) {
-        drawRoundRect(ctx, layout.bx - 4, layout.by - 4, layout.bw + 8, layout.bh + 8, 10);
-      } else {
-        drawRoundRect(ctx, layout.cx - layout.textW / 2 - 8, layout.cy - layout.textH / 2 - 6, layout.textW + 16, layout.textH + 12, 6);
-      }
-      ctx.stroke();
       ctx.restore();
     }
   }
@@ -853,17 +828,17 @@ var Renderer = (function () {
           x: layout.bx,
           y: layout.by,
           w: layout.bw,
-          h: layout.bh + (layout.fontSize * 0.65),
+          h: layout.bh,
           item: item
         });
       } else {
         bounds.push({
           id: item.id,
           index: i,
-          x: layout.cx - layout.textW / 2 - 15,
-          y: layout.cy - layout.textH / 2 - 10,
-          w: layout.textW + 30,
-          h: layout.textH + 20,
+          x: layout.cx - layout.textW / 2 - 10,
+          y: layout.cy - layout.textH / 2 - 6,
+          w: layout.textW + 20,
+          h: layout.textH + 12,
           item: item
         });
       }
@@ -908,11 +883,112 @@ var Renderer = (function () {
     return bounds;
   }
 
+  /* --- 미리보기 전용: 선택된 객체(스티커 / 말풍선 / 글자)의 통합 바운딩 프레임 및 우상단 X 삭제 버튼 --- */
+  function drawSelectionOverlay(ctx, state, W, H) {
+    if (state.selectedStickerId) {
+      var stkBounds = getStickersBounds(state, W);
+      var sb = stkBounds.find(function (item) { return item.id === state.selectedStickerId; });
+      if (sb) {
+        drawSelectionFrameAndButton(ctx, sb.x - 4, sb.y - 4, sb.w + 8, sb.h + 8);
+      }
+      return;
+    }
+
+    if (state.selectedTextItemId) {
+      var allTextBounds = getTextItemsBounds(state, W);
+      var tb = allTextBounds.find(function (item) { return item.id === state.selectedTextItemId; });
+      if (tb) {
+        drawSelectionFrameAndButton(ctx, tb.x - 4, tb.y - 4, tb.w + 8, tb.h + 8);
+      }
+    }
+  }
+
+  function drawSelectionFrameAndButton(ctx, boxX, boxY, boxW, boxH) {
+    /* 1. 선택 바운딩 박스 (부드러운 라운드 오렌지 점선 프레임) */
+    ctx.save();
+    ctx.strokeStyle = '#ff7043';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    drawRoundRect(ctx, boxX, boxY, boxW, boxH, 8);
+    ctx.stroke();
+
+    /* 2. 프레임 상 우측 상단 X 삭제 버튼 */
+    var btnX = boxX + boxW;
+    var btnY = boxY;
+    var outerR = 12;
+    var innerR = 10;
+
+    /* 화이트 테두리 & 입체 그림자 */
+    ctx.beginPath();
+    ctx.arc(btnX, btnY, outerR, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetY = 1.5;
+    ctx.fill();
+
+    /* 레드 원형 배경 */
+    ctx.beginPath();
+    ctx.arc(btnX, btnY, innerR, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff4757';
+    ctx.shadowColor = 'transparent';
+    ctx.fill();
+
+    /* 화이트 X 아이콘 */
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+    var arm = 4;
+    ctx.beginPath();
+    ctx.moveTo(btnX - arm, btnY - arm);
+    ctx.lineTo(btnX + arm, btnY + arm);
+    ctx.moveTo(btnX + arm, btnY - arm);
+    ctx.lineTo(btnX - arm, btnY + arm);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /**
+   * 현재 선택된 요소의 우상단 X 삭제 버튼 위치 및 반경 반환 (클릭 히트테스트용)
+   */
+  function getDeleteButtonPoint(state, outputWidth) {
+    var size = Utils.getOutputSize(state.ratio, outputWidth);
+    var W = size.w;
+
+    if (state.selectedStickerId) {
+      var stkBounds = getStickersBounds(state, W);
+      var sb = stkBounds.find(function (item) { return item.id === state.selectedStickerId; });
+      if (sb) {
+        var boxX = sb.x - 4;
+        var boxY = sb.y - 4;
+        var boxW = sb.w + 8;
+        return { x: boxX + boxW, y: boxY, radius: 15 };
+      }
+      return null;
+    }
+
+    if (state.selectedTextItemId) {
+      var allTextBounds = getTextItemsBounds(state, W);
+      var tb = allTextBounds.find(function (item) { return item.id === state.selectedTextItemId; });
+      if (tb) {
+        var tBoxX = tb.x - 4;
+        var tBoxY = tb.y - 4;
+        var tBoxW = tb.w + 8;
+        return { x: tBoxX + tBoxW, y: tBoxY, radius: 15 };
+      }
+      return null;
+    }
+
+    return null;
+  }
+
   return {
     render: render,
     getTextBounds: getTextBounds,
     getTextItemsBounds: getTextItemsBounds,
     getStickersBounds: getStickersBounds,
+    getDeleteButtonPoint: getDeleteButtonPoint,
     getTextItemsList: getTextItemsList,
     parseFormattedTokens: parseFormattedTokens
   };
