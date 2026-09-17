@@ -621,6 +621,92 @@ var Utils = (function () {
     return { w: w, h: h };
   }
 
+  /* 커스텀 확인/알림 다이얼로그 (브라우저 기본 confirm/alert 대체) */
+  function showConfirm(options) {
+    options = options || {};
+    var ov = document.getElementById('confirmOv');
+    if (!ov) {
+      var res = window.confirm((options.title ? options.title + '\n' : '') + options.message);
+      if (res && typeof options.onConfirm === 'function') options.onConfirm();
+      if (!res && typeof options.onCancel === 'function') options.onCancel();
+      return;
+    }
+
+    var iconEl = document.getElementById('confirmIcon');
+    var iconWrapEl = document.getElementById('confirmIconWrap');
+    var titleEl = document.getElementById('confirmTitle');
+    var msgEl = document.getElementById('confirmMsg');
+    var subEl = document.getElementById('confirmSubMsg');
+    var okBtn = document.getElementById('confirmOkBtn');
+    var cancelBtn = document.getElementById('confirmCancelBtn');
+
+    var isDanger = options.danger !== false;
+    if (iconEl) iconEl.textContent = options.icon || (isDanger ? '🗑️' : '💡');
+    if (iconWrapEl) {
+      iconWrapEl.className = 'confirm-icon-wrap ' + (options.type || (isDanger ? 'danger' : 'warning'));
+    }
+    if (titleEl) titleEl.textContent = options.title || '확인';
+    if (msgEl) msgEl.textContent = options.message || '';
+    if (subEl) {
+      if (options.subMessage) {
+        subEl.textContent = options.subMessage;
+        subEl.style.display = 'block';
+      } else {
+        subEl.style.display = 'none';
+      }
+    }
+
+    if (okBtn) {
+      okBtn.textContent = options.confirmText || (isDanger ? '삭제' : '확인');
+      okBtn.className = 'confirm-btn ok ' + (isDanger ? 'danger' : 'primary');
+    }
+
+    if (cancelBtn) {
+      cancelBtn.textContent = options.cancelText || '취소';
+    }
+
+    ov.hidden = false;
+
+    function cleanup() {
+      ov.hidden = true;
+      if (okBtn) okBtn.removeEventListener('click', onOk);
+      if (cancelBtn) cancelBtn.removeEventListener('click', onCancel);
+      ov.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKeyDown);
+    }
+
+    function onOk() {
+      cleanup();
+      if (typeof options.onConfirm === 'function') options.onConfirm();
+    }
+
+    function onCancel() {
+      cleanup();
+      if (typeof options.onCancel === 'function') options.onCancel();
+    }
+
+    function onBackdrop(e) {
+      if (e.target === ov) onCancel();
+    }
+
+    function onKeyDown(e) {
+      if (e.key === 'Escape') {
+        onCancel();
+      } else if (e.key === 'Enter') {
+        onOk();
+      }
+    }
+
+    if (okBtn) okBtn.addEventListener('click', onOk);
+    if (cancelBtn) cancelBtn.addEventListener('click', onCancel);
+    ov.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKeyDown);
+
+    setTimeout(function () {
+      if (cancelBtn) cancelBtn.focus();
+    }, 50);
+  }
+
   return {
     validateImageFile: validateImageFile,
     loadImageFromFile: loadImageFromFile,
@@ -631,6 +717,7 @@ var Utils = (function () {
     formatFileSize: formatFileSize,
     generateId: generateId,
     showToast: showToast,
+    showConfirm: showConfirm,
     getOutputSize: getOutputSize,
     RATIOS: RATIOS
   };

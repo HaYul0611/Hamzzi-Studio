@@ -978,6 +978,24 @@
     </div>
   </div>
 
+  <!-- 커스텀 확인/알림 다이얼로그 오버레이 (브라우저 기본 confirm 대체) -->
+  <div id="confirmOv" class="overlay confirm-overlay" hidden>
+    <div class="ov-card confirm-card" role="dialog" aria-modal="true">
+      <div id="confirmIconWrap" class="confirm-icon-wrap danger">
+        <span id="confirmIcon" class="confirm-icon">🗑️</span>
+      </div>
+      <div class="confirm-content">
+        <h3 id="confirmTitle" class="confirm-title">템플릿 삭제</h3>
+        <p id="confirmMsg" class="confirm-msg">"ㅇㅇㅇㅇ" 템플릿을 삭제하시겠습니까?</p>
+        <p id="confirmSubMsg" class="confirm-submsg">삭제된 템플릿은 복구할 수 없습니다.</p>
+      </div>
+      <div class="confirm-actions">
+        <button id="confirmCancelBtn" class="confirm-btn cancel" type="button">취소</button>
+        <button id="confirmOkBtn" class="confirm-btn ok danger" type="button">삭제</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/utils.js"></script>
   <script src="js/hamster-data.js"></script>
   <script src="js/renderer.js"></script>

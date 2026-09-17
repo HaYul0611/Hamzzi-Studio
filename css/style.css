@@ -1257,6 +1257,7 @@ body {
   -webkit-appearance: none;
   margin: 0;
 }
+
 .custom-kb-input[type=number] {
   -moz-appearance: textfield;
 }
@@ -2938,4 +2939,175 @@ body {
 .delete-bubble-btn:hover {
   background: rgba(255, 68, 68, 0.15);
   border-color: #e53935;
+}
+
+/* ========================================================
+   12. 커스텀 컨펌/얼럿 다이얼로그 (브라우저 기본 confirm 대체)
+   ======================================================== */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 15, 20, 0.65);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: overlayFadeIn 0.18s ease;
+}
+
+.confirm-overlay[hidden] {
+  display: none !important;
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes confirmCardPop {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.confirm-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 28px 24px 22px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: confirmCardPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.confirm-icon-wrap {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  font-size: 26px;
+  transition: var(--transition);
+}
+
+.confirm-icon-wrap.danger {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 4px solid #fef2f2;
+}
+
+.confirm-icon-wrap.warning {
+  background: #ffedd5;
+  color: #ea580c;
+  border: 4px solid #fff7ed;
+}
+
+.confirm-icon-wrap.info {
+  background: #e0f2fe;
+  color: #0284c7;
+  border: 4px solid #f0f9ff;
+}
+
+.confirm-content {
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.confirm-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  letter-spacing: -0.2px;
+}
+
+.confirm-msg {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  line-height: 1.5;
+  margin-bottom: 5px;
+  word-break: break-all;
+}
+
+.confirm-submsg {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+
+.confirm-btn {
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+
+.confirm-btn.cancel {
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.confirm-btn.cancel:hover {
+  background: #e5e7eb;
+  color: var(--text-primary);
+}
+
+.confirm-btn.ok.danger {
+  background: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.28);
+}
+
+.confirm-btn.ok.danger:hover {
+  background: #dc2626;
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.38);
+  transform: translateY(-1px);
+}
+
+.confirm-btn.ok.primary {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.confirm-btn.ok.primary:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 6px 16px var(--accent-glow);
+  transform: translateY(-1px);
 }

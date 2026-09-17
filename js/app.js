@@ -311,22 +311,42 @@
       if (e.target.classList.contains('tpl-update')) {
         var currentTpl = Templates.getById(id);
         var oldName = currentTpl ? currentTpl.name : '템플릿';
-        if (confirm('현재 작업 중인 화면 내용으로 "' + oldName + '" 템플릿을 덮어쓰시겠습니까?')) {
-          Templates.update(id, Editor.getState());
-          renderTemplateList();
-          Utils.showToast(toastEl, '"' + oldName + '" 템플릿이 현재 상태로 덮어쓰기되었습니다.', 'success');
-        }
+        Utils.showConfirm({
+          icon: '🔄',
+          type: 'warning',
+          title: '템플릿 덮어쓰기',
+          message: '"' + oldName + '" 템플릿을 현재 상태로 덮어쓰시겠습니까?',
+          subMessage: '기존 설정과 문구가 현재 작업 화면의 내용으로 변경됩니다.',
+          confirmText: '덮어쓰기',
+          cancelText: '취소',
+          danger: false,
+          onConfirm: function () {
+            Templates.update(id, Editor.getState());
+            renderTemplateList();
+            Utils.showToast(toastEl, '"' + oldName + '" 템플릿이 현재 상태로 덮어쓰기되었습니다.', 'success');
+          }
+        });
       }
 
       // 4) 삭제
       if (e.target.classList.contains('tpl-del')) {
         var targetTpl = Templates.getById(id);
         var nameToDelete = targetTpl ? targetTpl.name : '템플릿';
-        if (confirm('"' + nameToDelete + '" 템플릿을 삭제하시겠습니까?')) {
-          Templates.remove(id);
-          renderTemplateList();
-          Utils.showToast(toastEl, '템플릿이 삭제되었습니다.', 'info');
-        }
+        Utils.showConfirm({
+          icon: '🗑️',
+          type: 'danger',
+          title: '템플릿 삭제',
+          message: '"' + nameToDelete + '" 템플릿을 삭제하시겠습니까?',
+          subMessage: '삭제된 템플릿은 복구할 수 없습니다.',
+          confirmText: '삭제',
+          cancelText: '취소',
+          danger: true,
+          onConfirm: function () {
+            Templates.remove(id);
+            renderTemplateList();
+            Utils.showToast(toastEl, '템플릿이 삭제되었습니다.', 'info');
+          }
+        });
       }
     };
   }
@@ -363,7 +383,7 @@
       var doSave = function () {
         var newName = input.value.trim();
         if (!newName) {
-          alert('템플릿 이름을 입력해주세요.');
+          Utils.showToast(document.getElementById('toast'), '템플릿 이름을 입력해주세요.', 'error');
           input.focus();
           return;
         }
