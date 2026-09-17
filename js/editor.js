@@ -33,6 +33,7 @@ var Editor = (function () {
     textY: 50,
     bubble: 'none',
     bubbleColor: '#ffffff',
+    bubbleTail: 'bottom-left',
     bgColor: '#f5f5f5',
     transparentBg: false,
     originalImage: null, /* 누끼 복원용 원본 이미지 인스턴스 */
@@ -45,6 +46,7 @@ var Editor = (function () {
   var textInput, fontSizeInput, fontSizeVal, textColorInput, colorHex;
   var textXInput, textXVal, textYInput, textYVal;
   var bubbleColorSec, bubbleColorInput, bubbleColorHex;
+  var bubbleTailSec;
   var bgColorInput, bgColorHex, transparentBgCheck;
   var fitCoverBtn, fitContainBtn, fitModeDesc, imgZoomInput, imgZoomVal, resetPanBtn;
   var fontFamilySelect, undoBtn, redoBtn, activeStickersWrap;
@@ -102,6 +104,7 @@ var Editor = (function () {
     bubbleColorSec = document.getElementById('bubbleColorSection');
     bubbleColorInput = document.getElementById('bubbleColor');
     bubbleColorHex = document.getElementById('bubbleColorHex');
+    bubbleTailSec = document.getElementById('bubbleTailSection');
 
     bgColorInput = document.getElementById('bgColor');
     bgColorHex = document.getElementById('bgColorHex');
@@ -146,6 +149,7 @@ var Editor = (function () {
       textY: state.textY,
       bubble: state.bubble,
       bubbleColor: state.bubbleColor,
+      bubbleTail: state.bubbleTail,
       bgColor: state.bgColor,
       transparentBg: state.transparentBg,
       stickers: state.stickers
@@ -189,6 +193,7 @@ var Editor = (function () {
     state.textY = s.textY;
     state.bubble = s.bubble;
     state.bubbleColor = s.bubbleColor;
+    state.bubbleTail = s.bubbleTail || 'bottom-left';
     state.bgColor = s.bgColor;
     state.transparentBg = s.transparentBg || false;
     state.stickers = s.stickers || [];
@@ -734,9 +739,28 @@ var Editor = (function () {
       if (bubbleColorSec) {
         bubbleColorSec.hidden = (state.bubble === 'none');
       }
+      if (bubbleTailSec) {
+        bubbleTailSec.hidden = (state.bubble === 'none');
+      }
       renderPreview();
       pushHistory();
     });
+
+    /* 말풍선 꼬리 방향 선택 */
+    var tailDirRow = document.getElementById('tailDirRow');
+    if (tailDirRow) {
+      tailDirRow.addEventListener('click', function (e) {
+        var btn = e.target.closest('.tail-btn');
+        if (!btn) return;
+        state.bubbleTail = btn.dataset.tail || 'bottom-left';
+        var allTailBtns = tailDirRow.querySelectorAll('.tail-btn');
+        allTailBtns.forEach(function (b) {
+          b.classList.toggle('active', b.dataset.tail === state.bubbleTail);
+        });
+        renderPreview();
+        pushHistory();
+      });
+    }
 
     /* 말풍선 색상 피커 */
     if (bubbleColorInput) {
@@ -1332,6 +1356,13 @@ var Editor = (function () {
     if (bubbleColorInput) bubbleColorInput.value = state.bubbleColor || '#ffffff';
     if (bubbleColorHex) bubbleColorHex.textContent = state.bubbleColor || '#ffffff';
     if (bubbleColorSec) bubbleColorSec.hidden = (state.bubble === 'none');
+    if (bubbleTailSec) bubbleTailSec.hidden = (state.bubble === 'none');
+
+    var curTail = state.bubbleTail || 'bottom-left';
+    var tailBtns = document.querySelectorAll('#tailDirRow .tail-btn');
+    tailBtns.forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tail === curTail);
+    });
 
     if (fontFamilySelect) fontFamilySelect.value = state.fontFamily || "'Noto Sans KR', sans-serif";
     syncFontPickerUi(state.fontFamily);
@@ -1583,6 +1614,7 @@ var Editor = (function () {
     state.imageZoom = tpl.imageZoom || 100;
     state.bubble = tpl.bubble || 'none';
     state.bubbleColor = tpl.bubbleColor || '#ffffff';
+    state.bubbleTail = tpl.bubbleTail || 'bottom-left';
     state.bgColor = tpl.bgColor || '#f5f5f5';
     state.stickers = tpl.stickers || [];
 

@@ -727,6 +727,22 @@
         <button class="bub-btn" data-bubble="whisper" type="button">🗨️ 속삭임</button>
       </div>
 
+      <!-- 말풍선 꼬리 방향 선택기 -->
+      <div id="bubbleTailSection" class="bubble-tail-section" hidden>
+        <label class="field-label">말풍선 꼬리 방향</label>
+        <div class="tail-dir-grid" id="tailDirRow">
+          <button class="tail-btn active" data-tail="bottom-left" type="button" title="하단 좌측">↙ 하단 좌</button>
+          <button class="tail-btn" data-tail="bottom-center" type="button" title="하단 중앙">⬇ 하단 중앙</button>
+          <button class="tail-btn" data-tail="bottom-right" type="button" title="하단 우측">↘ 하단 우</button>
+          <button class="tail-btn" data-tail="top-left" type="button" title="상단 좌측">↖ 상단 좌</button>
+          <button class="tail-btn" data-tail="top-center" type="button" title="상단 중앙">⬆ 상단 중앙</button>
+          <button class="tail-btn" data-tail="top-right" type="button" title="상단 우측">↗ 상단 우</button>
+          <button class="tail-btn" data-tail="left" type="button" title="좌측">⬅ 좌측</button>
+          <button class="tail-btn" data-tail="right" type="button" title="우측">➡ 우측</button>
+          <button class="tail-btn" data-tail="none" type="button" title="꼬리 숨김">🚫 꼬리 없음</button>
+        </div>
+      </div>
+
       <div id="bubbleColorSection" class="bubble-color-section" hidden>
         <label class="field-label" for="bubbleColor">말풍선 내부 색상</label>
         <div class="color-row">

@@ -306,7 +306,7 @@ var Utils = (function () {
       if (visited[pIdx] || isBarrier[pIdx]) return;
       var p4 = pIdx * 4;
       var r = data[p4], g = data[p4 + 1], b = data[p4 + 2];
-      
+
       /* 그림자/발(어두운 영역) 및 경계선 시드 침범 차단 */
       if (grad[pIdx] >= edgeThresh) return;
       var lum = (r * 299 + g * 587 + b * 114) / 1000;

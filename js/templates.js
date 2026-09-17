@@ -78,6 +78,7 @@ var Templates = (function () {
       textY: state.textY,
       bubble: state.bubble,
       bubbleColor: state.bubbleColor || '#ffffff',
+      bubbleTail: state.bubbleTail || 'bottom-left',
       bgColor: state.bgColor,
       fitMode: state.fitMode || 'cover',
       imagePanX: state.imagePanX || 0,

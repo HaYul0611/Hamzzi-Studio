@@ -287,7 +287,7 @@ var Renderer = (function () {
 
     /* 말풍선 렌더링 */
     if (layout.hasBubble) {
-      drawSpecificBubble(ctx, state.bubble, layout.bx, layout.by, layout.bw, layout.bh, layout.fontSize, bColor);
+      drawSpecificBubble(ctx, state.bubble, layout.bx, layout.by, layout.bw, layout.bh, layout.fontSize, bColor, state.bubbleTail || 'bottom-left');
     }
 
     /* 텍스트 렌더링 */
@@ -435,8 +435,8 @@ var Renderer = (function () {
       (code >= 0xF900 && code <= 0xFAFF);
   }
 
-  /* --- 다양한 말풍선 모양 렌더러 --- */
-  function drawSpecificBubble(ctx, type, x, y, w, h, fontSize, fillColor) {
+  /* --- 다양한 말풍선 모양 렌더러 (자유로운 8방향 꼬리 및 꼬리 없음 지원) --- */
+  function drawSpecificBubble(ctx, type, x, y, w, h, fontSize, fillColor, tailDir) {
     ctx.save();
     ctx.fillStyle = fillColor;
     ctx.strokeStyle = 'rgba(40,40,40,0.85)';
@@ -450,50 +450,99 @@ var Renderer = (function () {
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 3;
 
-    var tailSize = fontSize * 0.6;
+    var tailSize = fontSize * 0.65;
+    tailDir = tailDir || 'bottom-left';
 
     if (type === 'speech') {
-      drawSpeechBubble(ctx, x, y, w, h, 16, tailSize);
+      drawSpeechBubble(ctx, x, y, w, h, 16, tailSize, tailDir);
     } else if (type === 'round') {
-      drawRoundBubble(ctx, x, y, w, h, tailSize);
+      drawRoundBubble(ctx, x, y, w, h, tailSize, tailDir);
     } else if (type === 'think') {
-      drawThinkBubble(ctx, x, y, w, h, fontSize);
+      drawThinkBubble(ctx, x, y, w, h, fontSize, tailDir);
     } else if (type === 'shout') {
-      drawShoutBubble(ctx, x, y, w, h);
+      drawShoutBubble(ctx, x, y, w, h, tailDir);
     } else if (type === 'square') {
-      drawSquareBubble(ctx, x, y, w, h, tailSize);
+      drawSquareBubble(ctx, x, y, w, h, tailSize, tailDir);
     } else if (type === 'whisper') {
-      drawWhisperBubble(ctx, x, y, w, h, 14);
+      drawWhisperBubble(ctx, x, y, w, h, 14, tailSize, tailDir);
     }
 
     ctx.restore();
   }
 
-  function drawSpeechBubble(ctx, x, y, w, h, r, tailSize) {
-    var tailX = x + w * 0.35;
-    var tailY = y + h;
+  function drawSpeechBubble(ctx, x, y, w, h, r, tailSize, tailDir) {
+    tailDir = tailDir || 'bottom-left';
+    if (tailDir === 'none') {
+      drawRoundRect(ctx, x, y, w, h, r);
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.stroke();
+      return;
+    }
 
     ctx.beginPath();
     ctx.moveTo(x + r, y);
+
+    /* 상단 변 꼬리 */
+    if (tailDir === 'top-left') {
+      ctx.lineTo(x + Math.max(r, w * 0.2), y);
+      ctx.lineTo(x + w * 0.15, y - tailSize);
+      ctx.lineTo(x + Math.min(w - r, w * 0.4), y);
+    } else if (tailDir === 'top-center') {
+      ctx.lineTo(x + w * 0.4, y);
+      ctx.lineTo(x + w * 0.5, y - tailSize);
+      ctx.lineTo(x + w * 0.6, y);
+    } else if (tailDir === 'top-right') {
+      ctx.lineTo(x + Math.max(r, w * 0.6), y);
+      ctx.lineTo(x + w * 0.85, y - tailSize);
+      ctx.lineTo(x + Math.min(w - r, w * 0.8), y);
+    }
     ctx.lineTo(x + w - r, y);
     ctx.arcTo(x + w, y, x + w, y + r, r);
+
+    /* 우측 변 꼬리 */
+    if (tailDir === 'right') {
+      ctx.lineTo(x + w, y + Math.max(r, h * 0.35));
+      ctx.lineTo(x + w + tailSize, y + h * 0.5);
+      ctx.lineTo(x + w, y + Math.min(h - r, h * 0.65));
+    }
     ctx.lineTo(x + w, y + h - r);
     ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-    ctx.lineTo(tailX + tailSize * 1.1, y + h);
-    ctx.lineTo(tailX - tailSize * 0.2, tailY + tailSize);
-    ctx.lineTo(tailX, y + h);
+
+    /* 하단 변 꼬리 */
+    if (tailDir === 'bottom-right') {
+      ctx.lineTo(x + Math.min(w - r, w * 0.8), y + h);
+      ctx.lineTo(x + w * 0.85, y + h + tailSize);
+      ctx.lineTo(x + Math.max(r, w * 0.6), y + h);
+    } else if (tailDir === 'bottom-center') {
+      ctx.lineTo(x + w * 0.6, y + h);
+      ctx.lineTo(x + w * 0.5, y + h + tailSize);
+      ctx.lineTo(x + w * 0.4, y + h);
+    } else if (tailDir === 'bottom-left') {
+      ctx.lineTo(x + Math.min(w - r, w * 0.42), y + h);
+      ctx.lineTo(x + w * 0.15, y + h + tailSize);
+      ctx.lineTo(x + Math.max(r, w * 0.22), y + h);
+    }
     ctx.lineTo(x + r, y + h);
     ctx.arcTo(x, y + h, x, y + h - r, r);
+
+    /* 좌측 변 꼬리 */
+    if (tailDir === 'left') {
+      ctx.lineTo(x, y + Math.min(h - r, h * 0.65));
+      ctx.lineTo(x - tailSize, y + h * 0.5);
+      ctx.lineTo(x, y + Math.max(r, h * 0.35));
+    }
     ctx.lineTo(x, y + r);
     ctx.arcTo(x, y, x + r, y, r);
-    ctx.closePath();
 
+    ctx.closePath();
     ctx.fill();
     ctx.shadowColor = 'transparent';
     ctx.stroke();
   }
 
-  function drawRoundBubble(ctx, x, y, w, h, tailSize) {
+  function drawRoundBubble(ctx, x, y, w, h, tailSize, tailDir) {
+    tailDir = tailDir || 'bottom-left';
     var cx = x + w / 2;
     var cy = y + h / 2;
     var rx = w / 2;
@@ -505,18 +554,78 @@ var Renderer = (function () {
     ctx.shadowColor = 'transparent';
     ctx.stroke();
 
+    if (tailDir === 'none') return;
+
     ctx.beginPath();
-    var tailStartX = cx - rx * 0.4;
-    var tailStartY = cy + ry * 0.8;
+    var tailStartX, tailStartY, tailEndX, tailEndY, tipX, tipY;
+    if (tailDir === 'bottom-left') {
+      tailStartX = cx - rx * 0.45;
+      tailStartY = cy + ry * 0.78;
+      tailEndX = cx - rx * 0.15;
+      tailEndY = cy + ry * 0.95;
+      tipX = cx - rx * 0.65;
+      tipY = cy + ry + tailSize * 0.9;
+    } else if (tailDir === 'bottom-center') {
+      tailStartX = cx - rx * 0.2;
+      tailStartY = cy + ry * 0.95;
+      tailEndX = cx + rx * 0.2;
+      tailEndY = cy + ry * 0.95;
+      tipX = cx;
+      tipY = cy + ry + tailSize * 0.95;
+    } else if (tailDir === 'bottom-right') {
+      tailStartX = cx + rx * 0.15;
+      tailStartY = cy + ry * 0.95;
+      tailEndX = cx + rx * 0.45;
+      tailEndY = cy + ry * 0.78;
+      tipX = cx + rx * 0.65;
+      tipY = cy + ry + tailSize * 0.9;
+    } else if (tailDir === 'top-left') {
+      tailStartX = cx - rx * 0.45;
+      tailStartY = cy - ry * 0.78;
+      tailEndX = cx - rx * 0.15;
+      tailEndY = cy - ry * 0.95;
+      tipX = cx - rx * 0.65;
+      tipY = cy - ry - tailSize * 0.9;
+    } else if (tailDir === 'top-center') {
+      tailStartX = cx - rx * 0.2;
+      tailStartY = cy - ry * 0.95;
+      tailEndX = cx + rx * 0.2;
+      tailEndY = cy - ry * 0.95;
+      tipX = cx;
+      tipY = cy - ry - tailSize * 0.95;
+    } else if (tailDir === 'top-right') {
+      tailStartX = cx + rx * 0.15;
+      tailStartY = cy - ry * 0.95;
+      tailEndX = cx + rx * 0.45;
+      tailEndY = cy - ry * 0.78;
+      tipX = cx + rx * 0.65;
+      tipY = cy - ry - tailSize * 0.9;
+    } else if (tailDir === 'left') {
+      tailStartX = cx - rx * 0.85;
+      tailStartY = cy - ry * 0.3;
+      tailEndX = cx - rx * 0.85;
+      tailEndY = cy + ry * 0.3;
+      tipX = cx - rx - tailSize * 0.9;
+      tipY = cy;
+    } else if (tailDir === 'right') {
+      tailStartX = cx + rx * 0.85;
+      tailStartY = cy - ry * 0.3;
+      tailEndX = cx + rx * 0.85;
+      tailEndY = cy + ry * 0.3;
+      tipX = cx + rx + tailSize * 0.9;
+      tipY = cy;
+    }
+
     ctx.moveTo(tailStartX, tailStartY);
-    ctx.lineTo(tailStartX - tailSize * 0.6, tailStartY + tailSize * 0.9);
-    ctx.lineTo(tailStartX + tailSize * 0.8, tailStartY + 2);
+    ctx.lineTo(tipX, tipY);
+    ctx.lineTo(tailEndX, tailEndY);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
   }
 
-  function drawThinkBubble(ctx, x, y, w, h, fontSize) {
+  function drawThinkBubble(ctx, x, y, w, h, fontSize, tailDir) {
+    tailDir = tailDir || 'bottom-left';
     var bumps = 8;
     var cx = x + w / 2;
     var cy = y + h / 2;
@@ -546,24 +655,51 @@ var Renderer = (function () {
     ctx.shadowColor = 'transparent';
     ctx.stroke();
 
-    var b1x = x + w * 0.3;
-    var b1y = y + h + fontSize * 0.35;
+    if (tailDir === 'none') return;
+
+    var b1x, b1y, b2x, b2y;
     var b1r = fontSize * 0.22;
+    var b2r = fontSize * 0.13;
+
+    if (tailDir === 'bottom-left') {
+      b1x = x + w * 0.3;  b1y = y + h + fontSize * 0.35;
+      b2x = x + w * 0.2;  b2y = y + h + fontSize * 0.72;
+    } else if (tailDir === 'bottom-center') {
+      b1x = x + w * 0.5;  b1y = y + h + fontSize * 0.35;
+      b2x = x + w * 0.5;  b2y = y + h + fontSize * 0.72;
+    } else if (tailDir === 'bottom-right') {
+      b1x = x + w * 0.7;  b1y = y + h + fontSize * 0.35;
+      b2x = x + w * 0.8;  b2y = y + h + fontSize * 0.72;
+    } else if (tailDir === 'top-left') {
+      b1x = x + w * 0.3;  b1y = y - fontSize * 0.35;
+      b2x = x + w * 0.2;  b2y = y - fontSize * 0.72;
+    } else if (tailDir === 'top-center') {
+      b1x = x + w * 0.5;  b1y = y - fontSize * 0.35;
+      b2x = x + w * 0.5;  b2y = y - fontSize * 0.72;
+    } else if (tailDir === 'top-right') {
+      b1x = x + w * 0.7;  b1y = y - fontSize * 0.35;
+      b2x = x + w * 0.8;  b2y = y - fontSize * 0.72;
+    } else if (tailDir === 'left') {
+      b1x = x - fontSize * 0.35;  b1y = y + h * 0.55;
+      b2x = x - fontSize * 0.72;  b2y = y + h * 0.65;
+    } else if (tailDir === 'right') {
+      b1x = x + w + fontSize * 0.35;  b1y = y + h * 0.55;
+      b2x = x + w + fontSize * 0.72;  b2y = y + h * 0.65;
+    }
+
     ctx.beginPath();
     ctx.arc(b1x, b1y, b1r, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    var b2x = x + w * 0.22;
-    var b2y = y + h + fontSize * 0.72;
-    var b2r = fontSize * 0.13;
     ctx.beginPath();
     ctx.arc(b2x, b2y, b2r, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   }
 
-  function drawShoutBubble(ctx, x, y, w, h) {
+  function drawShoutBubble(ctx, x, y, w, h, tailDir) {
+    tailDir = tailDir || 'bottom-left';
     var points = 16;
     var cx = x + w / 2;
     var cy = y + h / 2;
@@ -572,12 +708,30 @@ var Renderer = (function () {
     var rxIn = rxOut * 0.76;
     var ryIn = ryOut * 0.76;
 
+    var targetAngle = Math.PI * 0.75;
+    if (tailDir === 'bottom-center') targetAngle = Math.PI * 0.5;
+    else if (tailDir === 'bottom-right') targetAngle = Math.PI * 0.25;
+    else if (tailDir === 'top-left') targetAngle = -Math.PI * 0.75;
+    else if (tailDir === 'top-center') targetAngle = -Math.PI * 0.5;
+    else if (tailDir === 'top-right') targetAngle = -Math.PI * 0.25;
+    else if (tailDir === 'left') targetAngle = Math.PI;
+    else if (tailDir === 'right') targetAngle = 0;
+
     ctx.beginPath();
     for (var i = 0; i < points * 2; i++) {
       var angle = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
       var isOuter = (i % 2 === 0);
       var rxi = isOuter ? rxOut : rxIn;
       var ryi = isOuter ? ryOut : ryIn;
+
+      if (isOuter && tailDir !== 'none') {
+        var diffAngle = Math.abs(Math.atan2(Math.sin(angle - targetAngle), Math.cos(angle - targetAngle)));
+        if (diffAngle < (Math.PI / points) * 1.5) {
+          rxi *= 1.35;
+          ryi *= 1.35;
+        }
+      }
+
       var px = cx + Math.cos(angle) * rxi;
       var py = cy + Math.sin(angle) * ryi;
 
@@ -590,31 +744,15 @@ var Renderer = (function () {
     ctx.stroke();
   }
 
-  function drawSquareBubble(ctx, x, y, w, h, tailSize) {
-    var tailX = x + w * 0.3;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + w, y);
-    ctx.lineTo(x + w, y + h);
-    ctx.lineTo(tailX + tailSize, y + h);
-    ctx.lineTo(tailX, y + h + tailSize);
-    ctx.lineTo(tailX, y + h);
-    ctx.lineTo(x, y + h);
-    ctx.closePath();
-
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.stroke();
+  function drawSquareBubble(ctx, x, y, w, h, tailSize, tailDir) {
+    drawSpeechBubble(ctx, x, y, w, h, 0, tailSize, tailDir);
   }
 
-  function drawWhisperBubble(ctx, x, y, w, h, r) {
-    drawRoundRect(ctx, x, y, w, h, r);
-    ctx.fill();
-
-    ctx.shadowColor = 'transparent';
+  function drawWhisperBubble(ctx, x, y, w, h, r, tailSize, tailDir) {
+    ctx.save();
     ctx.setLineDash([6, 5]);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    drawSpeechBubble(ctx, x, y, w, h, r, tailSize, tailDir);
+    ctx.restore();
   }
 
   function drawRoundRect(ctx, x, y, w, h, r) {

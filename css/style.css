@@ -1809,6 +1809,51 @@ body {
   font-weight: 700;
 }
 
+.bubble-tail-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  animation: toastFade 0.2s ease;
+}
+
+.bubble-tail-section[hidden] {
+  display: none;
+}
+
+.tail-dir-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.tail-btn {
+  padding: 5px 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: var(--transition);
+  color: var(--text-secondary);
+}
+
+.tail-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tail-btn.active {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  font-weight: 700;
+}
+
 .bubble-color-section {
   margin-top: 10px;
   padding-top: 8px;
