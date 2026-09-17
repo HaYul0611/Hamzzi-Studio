@@ -41,6 +41,7 @@ var Editor = (function () {
     uploadedOptimizedMime: 'image/jpeg',
     uploadedOptimizedStats: null,
     uploadedOriginalFileName: 'image',
+    targetKB: 500,       /* 사용자 지정 목표 용량 (KB, 기본 500KB) */
     selectedStickerId: null,
     selectedTextItemId: null,
     activeEditingTextId: 'bubble_1',
@@ -71,6 +72,7 @@ var Editor = (function () {
   var fitCoverBtn, fitContainBtn, fitModeDesc, imgZoomInput, imgZoomVal, resetPanBtn;
   var fontFamilySelect, undoBtn, redoBtn, activeStickersWrap;
   var textItemsChips, addTextItemBtn, deleteTextItemBtn;
+  var targetSizeSection, targetSizeDescBadge, customTargetKbInput;
   var selectedStickerId = null;
 
   var hamsterImages = {}; /* 고성능 이미지 캐시 */
@@ -147,6 +149,10 @@ var Editor = (function () {
     textItemsChips = document.getElementById('textItemsChips');
     addTextItemBtn = document.getElementById('addTextItemBtn');
     deleteTextItemBtn = document.getElementById('deleteTextItemBtn');
+
+    targetSizeSection = document.getElementById('targetSizeSection');
+    targetSizeDescBadge = document.getElementById('targetSizeDescBadge');
+    customTargetKbInput = document.getElementById('customTargetKbInput');
   }
 
   function getState() { return state; }
@@ -1270,6 +1276,53 @@ var Editor = (function () {
       requestAnimationFrame(apply);
     }
 
+    /* 목표 용량(KB) 설정 및 UI 제어 헬퍼 */
+    function updateTargetSizeUi(kb) {
+      var targetK = Math.max(30, Math.min(20480, parseInt(kb, 10) || 500));
+      state.targetKB = targetK;
+      if (customTargetKbInput && document.activeElement !== customTargetKbInput) {
+        customTargetKbInput.value = targetK;
+      }
+      var str = targetK >= 1024 ? ((targetK / 1024) % 1 === 0 ? (targetK / 1024) : (targetK / 1024).toFixed(1)) + ' MB' : targetK + ' KB';
+      if (targetSizeDescBadge) {
+        targetSizeDescBadge.textContent = '최대 ' + str + ' 맞춤';
+      }
+      var presetBtns = document.querySelectorAll('.target-preset-btn');
+      presetBtns.forEach(function (btn) {
+        var bKb = parseInt(btn.dataset.kb, 10);
+        btn.classList.toggle('active', bKb === targetK);
+      });
+      if (currentFormat === 'compressed' && mainDownloadText) {
+        mainDownloadText.textContent = '목표 ' + str + ' 최적화 다운로드';
+      }
+    }
+
+    var targetPresets = document.getElementById('targetSizePresets');
+    if (targetPresets) {
+      targetPresets.addEventListener('click', function (e) {
+        var btn = e.target.closest('.target-preset-btn');
+        if (!btn) return;
+        var kb = parseInt(btn.dataset.kb, 10);
+        if (kb) updateTargetSizeUi(kb);
+      });
+    }
+
+    if (customTargetKbInput) {
+      customTargetKbInput.addEventListener('input', function () {
+        var val = parseInt(customTargetKbInput.value, 10);
+        if (val && val >= 30) {
+          updateTargetSizeUi(val);
+        }
+      });
+      customTargetKbInput.addEventListener('change', function () {
+        var val = Math.max(30, Math.min(20480, parseInt(customTargetKbInput.value, 10) || 500));
+        updateTargetSizeUi(val);
+      });
+    }
+
+    /* 초기 목표 용량 UI 동기화 */
+    updateTargetSizeUi(state.targetKB || 500);
+
     if (formatSelector) {
       formatSelector.addEventListener('click', function (e) {
         var chip = e.target.closest('.export-chip');
@@ -1280,11 +1333,21 @@ var Editor = (function () {
         currentResolution = parseInt(chip.dataset.res || '1080', 10);
         updateExportGlider(chip);
 
+        /* 목표 용량 설정 패널 표시 여부 토글 */
+        if (targetSizeSection) {
+          var isComp = currentFormat === 'compressed';
+          targetSizeSection.hidden = !isComp;
+          if (isComp) targetSizeSection.removeAttribute('hidden');
+          else targetSizeSection.setAttribute('hidden', '');
+        }
+
         if (mainDownloadText) {
           if (currentResolution >= 3000) {
             mainDownloadText.textContent = '4K 초고화질 다운로드 (3840px)';
           } else if (currentFormat === 'compressed') {
-            mainDownloadText.textContent = '용량 최적화 다운로드 (경량화)';
+            var targetK = state.targetKB || 500;
+            var str = targetK >= 1024 ? ((targetK / 1024) % 1 === 0 ? (targetK / 1024) : (targetK / 1024).toFixed(1)) + ' MB' : targetK + ' KB';
+            mainDownloadText.textContent = '목표 ' + str + ' 최적화 다운로드';
           } else if (currentFormat === 'jpeg') {
             mainDownloadText.textContent = 'JPEG 다운로드 (1080px)';
           } else if (currentFormat === 'webp') {
@@ -1424,6 +1487,34 @@ var Editor = (function () {
       state.imageZoom = 100;
       if (imgZoomInput) imgZoomInput.value = 100;
       if (imgZoomVal) imgZoomVal.textContent = '100%';
+
+      /* 이전 작업 요소 (스티커, 다중 말풍선, 선택 상태, 텍스트 입력창) 완전 초기화 */
+      state.stickers = [];
+      selectedStickerId = null;
+      state.selectedStickerId = null;
+      state.textItems = [
+        {
+          id: 'bubble_1',
+          text: '',
+          textColor: '#ffffff',
+          fontSize: 32,
+          textX: 50,
+          textY: 50,
+          bubble: 'none',
+          bubbleColor: '#ffffff',
+          bubbleTail: 'bottom-left',
+          fontFamily: "'Noto Sans KR', sans-serif"
+        }
+      ];
+      state.selectedTextItemId = null;
+      state.activeEditingTextId = 'bubble_1';
+      state.text = '';
+      if (textInput) textInput.value = '';
+      syncActiveTextItemToState();
+      syncUiFromState();
+      renderActiveStickersUi();
+      renderTextItemsChips();
+      updateCanvasSelectionOverlay();
 
       /* 용량 최적화 배지 노출 및 다운로드 버튼 라벨 갱신 */
       var optBadge = document.getElementById('uploadOptimizeBadge');
@@ -2110,26 +2201,54 @@ var Editor = (function () {
 
   /* --- 압축 최적화된 업로드 원본 사진 즉시 다운로드 --- */
   function downloadOptimizedUploadedFile() {
-    if (!state.uploadedOptimizedDataUrl) {
+    if (!state.uploadedOptimizedDataUrl && !state.originalImage) {
       Utils.showToast(toastEl, '최적화된 업로드 사진이 없습니다. 먼저 사진을 업로드하세요.', 'info');
       return;
     }
     var origName = state.uploadedOriginalFileName || 'image';
     var dotIdx = origName.lastIndexOf('.');
     var baseName = dotIdx !== -1 ? origName.substring(0, dotIdx) : origName;
-    var ext = (state.uploadedOptimizedMime === 'image/jpeg') ? 'jpg' : ((state.uploadedOptimizedMime === 'image/webp') ? 'webp' : 'png');
-    var filename = baseName + '-optimized.' + ext;
+    var targetKB = state.targetKB || 500;
+    var targetStr = targetKB >= 1024 ? ((targetKB / 1024) % 1 === 0 ? (targetKB / 1024) : (targetKB / 1024).toFixed(1)) + 'MB' : targetKB + 'KB';
+    var source = state.originalImage || state.image;
 
-    try {
-      var link = document.createElement('a');
-      link.download = filename;
-      link.href = state.uploadedOptimizedDataUrl;
-      link.click();
-      var sizeText = state.uploadedOptimizedStats ? (' (' + state.uploadedOptimizedStats.compressedFormatted + ')') : '';
-      Utils.showToast(toastEl, '최적화 파일' + sizeText + ' 즉시 다운로드 완료!', 'success');
-    } catch (e) {
-      console.error('Optimized download error:', e);
-      Utils.showToast(toastEl, '다운로드 실패: ' + e.message, 'error');
+    /* 사용자 지정 목표 용량에 맞춘 동적 압축 생성 */
+    if (source && Utils.compressToTargetSize) {
+      Utils.compressToTargetSize(source, targetKB, { transparent: state.transparentBg }, function (err, result) {
+        if (!err && result && result.dataUrl) {
+          var ext = (result.mimeType === 'image/webp') ? 'webp' : 'jpg';
+          var filename = baseName + '-target-' + targetStr + '.' + ext;
+          try {
+            var link = document.createElement('a');
+            link.download = filename;
+            link.href = result.dataUrl;
+            link.click();
+            Utils.showToast(toastEl, '업로드 사진 목표 ' + targetStr + ' 맞춤 최적화 완료! (실제: ' + result.finalFormatted + ')', 'success');
+            return;
+          } catch (e) {
+            console.error('Download error:', e);
+          }
+        }
+        triggerDirectDownload();
+      });
+    } else {
+      triggerDirectDownload();
+    }
+
+    function triggerDirectDownload() {
+      var ext = (state.uploadedOptimizedMime === 'image/jpeg') ? 'jpg' : ((state.uploadedOptimizedMime === 'image/webp') ? 'webp' : 'png');
+      var filename = baseName + '-optimized.' + ext;
+      try {
+        var link = document.createElement('a');
+        link.download = filename;
+        link.href = state.uploadedOptimizedDataUrl;
+        link.click();
+        var sizeText = state.uploadedOptimizedStats ? (' (' + state.uploadedOptimizedStats.compressedFormatted + ')') : '';
+        Utils.showToast(toastEl, '최적화 파일' + sizeText + ' 다운로드 완료!', 'success');
+      } catch (e) {
+        console.error('Optimized download error:', e);
+        Utils.showToast(toastEl, '다운로드 실패: ' + e.message, 'error');
+      }
     }
   }
 
@@ -2149,13 +2268,56 @@ var Editor = (function () {
 
     function executeDownload() {
       Renderer.render(downloadCanvas, state, width);
-      var mime, ext, quality;
 
+      /* 사용자 지정 목표 용량 맞춤 압축 다운로드 */
       if (format === 'compressed') {
-        mime = state.transparentBg ? 'image/webp' : 'image/jpeg';
-        ext = state.transparentBg ? 'webp' : 'jpg';
-        quality = 0.82; /* 85% 이상 용량 절감 보장 경량화 압축 */
-      } else if (format === 'jpeg') {
+        var targetKB = state.targetKB || 500;
+        var targetStr = targetKB >= 1024 ? ((targetKB / 1024) % 1 === 0 ? (targetKB / 1024) : (targetKB / 1024).toFixed(1)) + 'MB' : targetKB + 'KB';
+
+        Utils.compressToTargetSize(downloadCanvas, targetKB, { transparent: state.transparentBg }, function (err, result) {
+          if (err || !result || !result.dataUrl) {
+            console.warn('compressToTargetSize fallback:', err);
+            fallbackStandardDownload();
+            return;
+          }
+
+          var mime = result.mimeType || (state.transparentBg ? 'image/webp' : 'image/jpeg');
+          var ext = (mime === 'image/webp') ? 'webp' : 'jpg';
+          var ratioStr = state.ratio.replace(':', 'x');
+          var filename = 'hamzzi-' + ratioStr + '-target-' + targetStr + '.' + ext;
+
+          try {
+            var link = document.createElement('a');
+            link.download = filename;
+            link.href = result.dataUrl;
+            link.click();
+            Utils.showToast(toastEl, '목표 ' + targetStr + ' 맞춤 최적화 완료! (실제: ' + result.finalFormatted + ')', 'success');
+          } catch (e) {
+            console.error('Download error:', e);
+            Utils.showToast(toastEl, '다운로드 실패: ' + e.message, 'error');
+          }
+        });
+        return;
+      }
+
+      function fallbackStandardDownload() {
+        var mime = state.transparentBg ? 'image/webp' : 'image/jpeg';
+        var ext = state.transparentBg ? 'webp' : 'jpg';
+        var ratioStr = state.ratio.replace(':', 'x');
+        var filename = 'hamzzi-' + ratioStr + '-optimized.' + ext;
+        try {
+          var link = document.createElement('a');
+          link.download = filename;
+          link.href = downloadCanvas.toDataURL(mime, 0.82);
+          link.click();
+          Utils.showToast(toastEl, '용량 최적화 다운로드 완료!', 'success');
+        } catch (e) {
+          Utils.showToast(toastEl, '다운로드 실패: ' + e.message, 'error');
+        }
+      }
+
+      var mime, ext, quality;
+      if (format === 'jpeg') {
         mime = 'image/jpeg';
         ext = 'jpg';
         quality = 0.85; /* 고화질 유지 및 용량 비대화 방지 */
@@ -2170,7 +2332,7 @@ var Editor = (function () {
       }
 
       var ratioStr = state.ratio.replace(':', 'x');
-      var hqPrefix = width >= 3000 ? '-4K' : (width >= 2000 ? '-2K' : (format === 'compressed' ? '-optimized' : ''));
+      var hqPrefix = width >= 3000 ? '-4K' : (width >= 2000 ? '-2K' : '');
       var filename = 'hamzzi-' + ratioStr + hqPrefix + '.' + ext;
 
       try {
@@ -2178,7 +2340,7 @@ var Editor = (function () {
         link.download = filename;
         link.href = downloadCanvas.toDataURL(mime, quality);
         link.click();
-        Utils.showToast(toastEl, '다운로드 완료! (' + ext.toUpperCase() + (format === 'compressed' ? ' 용량 최적화' : '') + ')', 'success');
+        Utils.showToast(toastEl, '다운로드 완료! (' + ext.toUpperCase() + ')', 'success');
       } catch (e) {
         console.error('Download error:', e);
         Utils.showToast(toastEl, '다운로드 실패: ' + e.message, 'error');

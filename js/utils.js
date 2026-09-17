@@ -156,6 +156,132 @@ var Utils = (function () {
     });
   }
 
+  /* 사용자 지정 목표 파일 용량(KB) 맞춤 압축 (이진 탐색 + 적응형 다운스케일링) */
+  function compressToTargetSize(sourceCanvasOrImg, targetKB, options, cb) {
+    var opts = options || {};
+    var targetK = Math.max(30, parseInt(targetKB, 10) || 500);
+    var targetBytes = targetK * 1024;
+    var transparent = !!opts.transparent;
+    var mimeType = opts.mimeType || (transparent ? 'image/webp' : 'image/jpeg');
+
+    /* 소스 엘리먼트 유효성 및 원본 크기 확인 (Canvas 또는 Image) */
+    var srcW = sourceCanvasOrImg.naturalWidth || sourceCanvasOrImg.width;
+    var srcH = sourceCanvasOrImg.naturalHeight || sourceCanvasOrImg.height;
+    if (!srcW || !srcH) {
+      if (typeof cb === 'function') cb('유효하지 않은 이미지 소스입니다.');
+      return;
+    }
+
+    /* 초기 캔버스 생성 및 최대 해상도 제한 (기본 2048px) */
+    var curW = srcW;
+    var curH = srcH;
+    var maxInitialDim = opts.maxDim || 2048;
+    if (curW > maxInitialDim || curH > maxInitialDim) {
+      if (curW > curH) {
+        curH = Math.round((curH * maxInitialDim) / curW);
+        curW = maxInitialDim;
+      } else {
+        curW = Math.round((curW * maxInitialDim) / curH);
+        curH = maxInitialDim;
+      }
+    }
+
+    var workCanvas = document.createElement('canvas');
+    workCanvas.width = curW;
+    workCanvas.height = curH;
+    var workCtx = workCanvas.getContext('2d');
+    workCtx.imageSmoothingEnabled = true;
+    workCtx.imageSmoothingQuality = 'high';
+    workCtx.drawImage(sourceCanvasOrImg, 0, 0, curW, curH);
+
+    function calcDataUrlBytes(dUrl) {
+      var commaIdx = dUrl.indexOf(',');
+      var base64Len = commaIdx !== -1 ? (dUrl.length - commaIdx - 1) : dUrl.length;
+      return Math.round(base64Len * 0.75);
+    }
+
+    /* 단계별 압축 & 크기 제약 수렴 */
+    var bestDataUrl = null;
+    var bestBytes = Infinity;
+    var bestQuality = 0.85;
+    var maxScaleAttempts = 3;
+
+    for (var attempt = 0; attempt < maxScaleAttempts; attempt++) {
+      var lowQ = 0.12;
+      var highQ = 0.95;
+      var foundFit = false;
+
+      /* 이진 탐색으로 최적 화질 q 결정 (6회 반복) */
+      for (var iter = 0; iter < 6; iter++) {
+        var midQ = (lowQ + highQ) / 2;
+        var testUrl = workCanvas.toDataURL(mimeType, midQ);
+        var testBytes = calcDataUrlBytes(testUrl);
+
+        if (testBytes <= targetBytes) {
+          foundFit = true;
+          if (!bestDataUrl || testBytes > bestBytes || bestBytes > targetBytes) {
+            bestDataUrl = testUrl;
+            bestBytes = testBytes;
+            bestQuality = midQ;
+          }
+          /* 더 좋은 화질 탐색 */
+          lowQ = midQ;
+        } else {
+          /* 용량 초과: 화질 낮춤 */
+          highQ = midQ;
+          if (!bestDataUrl || (bestBytes > targetBytes && testBytes < bestBytes)) {
+            bestDataUrl = testUrl;
+            bestBytes = testBytes;
+            bestQuality = midQ;
+          }
+        }
+      }
+
+      /* 이미 목표 바이트 이하로 들어왔으면 종료 */
+      if (foundFit && bestBytes <= targetBytes) {
+        break;
+      }
+
+      /* 최저 화질에서도 목표 용량을 초과하면 해상도 비율 축소 */
+      if (attempt < maxScaleAttempts - 1) {
+        var scaleRatio = Math.sqrt((targetBytes * 0.88) / Math.max(targetBytes + 1, bestBytes));
+        scaleRatio = Math.max(0.35, Math.min(0.85, scaleRatio));
+        var nextW = Math.max(320, Math.round(curW * scaleRatio));
+        var nextH = Math.max(320, Math.round(curH * scaleRatio));
+        if (nextW >= curW && nextH >= curH) break;
+
+        var nextCanvas = document.createElement('canvas');
+        nextCanvas.width = nextW;
+        nextCanvas.height = nextH;
+        var nextCtx = nextCanvas.getContext('2d');
+        nextCtx.imageSmoothingEnabled = true;
+        nextCtx.imageSmoothingQuality = 'high';
+        nextCtx.drawImage(workCanvas, 0, 0, nextW, nextH);
+
+        workCanvas = nextCanvas;
+        curW = nextW;
+        curH = nextH;
+      }
+    }
+
+    var finalBytes = bestBytes || calcDataUrlBytes(bestDataUrl);
+    var res = {
+      dataUrl: bestDataUrl,
+      finalSize: finalBytes,
+      finalFormatted: formatFileSize(finalBytes),
+      targetKB: targetK,
+      targetFormatted: formatFileSize(targetBytes),
+      mimeType: mimeType,
+      quality: Math.round(bestQuality * 100) / 100,
+      width: curW,
+      height: curH
+    };
+
+    if (typeof cb === 'function') {
+      cb(null, res);
+    }
+  }
+
   /* 사진 자동 누끼 따기 (동적 적응형 배경 모델링 + 경계선 차단 + 피사체 무손실 보호 누끼) */
   function createCutoutImage(img, options, callback) {
     if (typeof options === 'function') {
@@ -500,6 +626,7 @@ var Utils = (function () {
     loadImageFromFile: loadImageFromFile,
     loadImageFromUrl: loadImageFromUrl,
     compressImageFile: compressImageFile,
+    compressToTargetSize: compressToTargetSize,
     createCutoutImage: createCutoutImage,
     formatFileSize: formatFileSize,
     generateId: generateId,

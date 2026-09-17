@@ -262,6 +262,35 @@
             </button>
           </div>
         </div>
+        <!-- 사용자 지정 목표 파일 용량 설정 패널 (용량 최적화 모드 전용) -->
+        <div class="target-size-section" id="targetSizeSection">
+          <div class="target-size-header">
+            <span class="target-size-label">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>목표 파일 용량 맞춤:</span>
+            </span>
+            <span class="target-size-badge" id="targetSizeDescBadge">최대 500 KB 맞춤</span>
+          </div>
+          <div class="target-size-controls">
+            <div class="target-size-presets" id="targetSizePresets">
+              <button type="button" class="target-preset-btn" data-kb="300">300 KB</button>
+              <button type="button" class="target-preset-btn active" data-kb="500">500 KB (권장)</button>
+              <button type="button" class="target-preset-btn" data-kb="1024">1 MB</button>
+              <button type="button" class="target-preset-btn" data-kb="2048">2 MB</button>
+            </div>
+            <div class="target-size-custom-wrap">
+              <label for="customTargetKbInput" class="custom-kb-label">직접 입력:</label>
+              <div class="custom-kb-input-box">
+                <input type="number" id="customTargetKbInput" class="custom-kb-input" min="30" max="20000" step="50" value="500" placeholder="500">
+                <span class="custom-kb-unit">KB</span>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="download-action-row">
           <button id="mainDownloadBtn" class="dl-btn dl-primary" type="button">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
