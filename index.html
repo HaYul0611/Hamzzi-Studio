@@ -154,6 +154,29 @@
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
+
+        <!-- 인-캔버스 인터랙티브 선택 및 플로팅 액션 오버레이 -->
+        <div id="canvasSelectionOverlay" class="canvas-selection-overlay" hidden>
+          <div class="sel-bounding-box" id="selBoundingBox">
+            <div class="sel-tag" id="selTag">말풍선</div>
+            <div class="sel-actions" id="selActions">
+              <button class="sel-btn sel-tail-btn" id="selTailBtn" type="button" title="꼬리 방향 바꾸기 (클릭 시 순환)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                </svg>
+                <span id="selTailText">↙ 꼬리</span>
+              </button>
+              <button class="sel-btn sel-del-btn" id="selDelBtn" type="button" title="선택 요소 삭제 (Delete / Backspace 키)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 이미지 맞춤 및 노출 영역 제어 -->
@@ -575,6 +598,22 @@
         <button class="chip-btn" data-text="감동실화 😭" type="button">감동</button>
       </div>
 
+      <!-- 다중 말풍선/문구 관리 바 -->
+      <div class="text-items-manager" id="textItemsManager">
+        <div class="text-items-header">
+          <span class="text-items-title">문구 & 말풍선 목록</span>
+          <button id="addTextItemBtn" class="add-text-btn" type="button" title="새 말풍선/문구 추가">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>말풍선 추가</span>
+          </button>
+        </div>
+        <div class="text-items-chips" id="textItemsChips" role="tablist"></div>
+      </div>
+
       <!-- 문구 입력 및 부분 글자색 지정 도구 -->
       <label class="field-label" for="textInput">문구 입력</label>
       <div class="text-format-bar">
@@ -597,9 +636,15 @@
       </div>
       <textarea id="textInput" class="text-area" rows="3" placeholder="여기에 문구를 입력하세요...&#10[특정단어](#색상코드) 지원"></textarea>
 
-      <!-- 글자 크기 -->
-      <label class="field-label" for="fontSize">기본 글자 크기 <span id="fontSizeVal" class="field-val">32</span></label>
-      <input type="range" id="fontSize" min="12" max="80" value="32" class="slider">
+      <!-- 글자 크기 (슬라이더 및 키보드 직접 입력) -->
+      <div class="field-label-row">
+        <label class="field-label" for="fontSize">기본 글자 크기</label>
+        <div class="num-input-wrap">
+          <input type="number" id="fontSizeNum" min="12" max="120" value="32" class="num-input" aria-label="글자 크기 직접 입력">
+          <span class="num-unit">px</span>
+        </div>
+      </div>
+      <input type="range" id="fontSize" min="12" max="120" value="32" class="slider">
 
       <!-- 기본 글자 색상 -->
       <label class="field-label" for="textColor">기본 글자 색상</label>
@@ -760,6 +805,18 @@
             <button class="cpre" data-color="#263238" type="button" aria-label="다크" style="background:#263238"></button>
           </div>
         </div>
+      </div>
+
+      <!-- 선택된 말풍선 삭제 버튼 -->
+      <div class="bubble-actions-row" id="bubbleActionsRow">
+        <button id="deleteTextItemBtn" class="delete-bubble-btn" type="button" title="현재 선택된 말풍선 삭제">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          </svg>
+          <span>선택된 말풍선 삭제</span>
+        </button>
       </div>
 
       <!-- 캔버스 여백 배경색 -->

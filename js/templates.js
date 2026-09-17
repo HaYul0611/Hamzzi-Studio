@@ -86,6 +86,7 @@ var Templates = (function () {
       imageZoom: state.imageZoom || 100,
       fontFamily: state.fontFamily || "'Noto Sans KR', sans-serif",
       stickers: state.stickers || [],
+      textItems: state.textItems ? JSON.parse(JSON.stringify(state.textItems)) : [],
       createdAt: Date.now()
     };
   }

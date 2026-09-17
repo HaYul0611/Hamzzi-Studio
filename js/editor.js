@@ -38,18 +38,35 @@ var Editor = (function () {
     transparentBg: false,
     originalImage: null, /* 누끼 복원용 원본 이미지 인스턴스 */
     selectedStickerId: null,
-    stickers: []        /* [{ id, icon, x, y, size }] */
+    selectedTextItemId: 'bubble_1',
+    stickers: [],        /* [{ id, icon, x, y, size }] */
+    textItems: [
+      {
+        id: 'bubble_1',
+        text: '',
+        textColor: '#ffffff',
+        fontSize: 32,
+        textX: 50,
+        textY: 50,
+        bubble: 'none',
+        bubbleColor: '#ffffff',
+        bubbleTail: 'bottom-left',
+        fontFamily: "'Noto Sans KR', sans-serif"
+      }
+    ]
   };
 
   /* DOM 요소 캐시 */
   var previewCanvas, downloadCanvas, toastEl, clearImageBtn;
-  var textInput, fontSizeInput, fontSizeVal, textColorInput, colorHex;
+  var textInput, fontSizeInput, fontSizeNum, fontSizeVal, textColorInput, colorHex;
   var textXInput, textXVal, textYInput, textYVal;
   var bubbleColorSec, bubbleColorInput, bubbleColorHex;
   var bubbleTailSec;
   var bgColorInput, bgColorHex, transparentBgCheck;
   var fitCoverBtn, fitContainBtn, fitModeDesc, imgZoomInput, imgZoomVal, resetPanBtn;
   var fontFamilySelect, undoBtn, redoBtn, activeStickersWrap;
+  var textItemsChips, addTextItemBtn, deleteTextItemBtn;
+  var canvasSelectionOverlay, selBoundingBox, selTag, selTailBtn, selTailText, selDelBtn;
   var selectedStickerId = null;
 
   var hamsterImages = {}; /* 고성능 이미지 캐시 */
@@ -92,6 +109,7 @@ var Editor = (function () {
 
     textInput = document.getElementById('textInput');
     fontSizeInput = document.getElementById('fontSize');
+    fontSizeNum = document.getElementById('fontSizeNum');
     fontSizeVal = document.getElementById('fontSizeVal');
     textColorInput = document.getElementById('textColor');
     colorHex = document.getElementById('colorHex');
@@ -121,6 +139,16 @@ var Editor = (function () {
     undoBtn = document.getElementById('undoBtn');
     redoBtn = document.getElementById('redoBtn');
     activeStickersWrap = document.getElementById('activeStickersWrap');
+
+    textItemsChips = document.getElementById('textItemsChips');
+    addTextItemBtn = document.getElementById('addTextItemBtn');
+    deleteTextItemBtn = document.getElementById('deleteTextItemBtn');
+    canvasSelectionOverlay = document.getElementById('canvasSelectionOverlay');
+    selBoundingBox = document.getElementById('selBoundingBox');
+    selTag = document.getElementById('selTag');
+    selTailBtn = document.getElementById('selTailBtn');
+    selTailText = document.getElementById('selTailText');
+    selDelBtn = document.getElementById('selDelBtn');
   }
 
   function getState() { return state; }
@@ -152,7 +180,9 @@ var Editor = (function () {
       bubbleTail: state.bubbleTail,
       bgColor: state.bgColor,
       transparentBg: state.transparentBg,
-      stickers: state.stickers
+      stickers: state.stickers,
+      textItems: state.textItems,
+      selectedTextItemId: state.selectedTextItemId
     }));
 
     historyStack.push({ snapshot: snapshot, image: state.image, originalImage: state.originalImage });
@@ -197,6 +227,19 @@ var Editor = (function () {
     state.bgColor = s.bgColor;
     state.transparentBg = s.transparentBg || false;
     state.stickers = s.stickers || [];
+    state.textItems = s.textItems || [{
+      id: 'bubble_1',
+      text: s.text,
+      textColor: s.textColor,
+      fontSize: s.fontSize,
+      textX: s.textX,
+      textY: s.textY,
+      bubble: s.bubble,
+      bubbleColor: s.bubbleColor,
+      bubbleTail: s.bubbleTail || 'bottom-left',
+      fontFamily: s.fontFamily
+    }];
+    state.selectedTextItemId = s.selectedTextItemId || (state.textItems[0] ? state.textItems[0].id : 'bubble_1');
     state.image = item.image;
     state.originalImage = item.originalImage || item.image;
 
@@ -216,6 +259,275 @@ var Editor = (function () {
     if (redoBtn) redoBtn.disabled = (historyIndex >= historyStack.length - 1);
   }
 
+  /* --- 다중 문구 & 말풍선 (Multi-bubble) 상태 동기화 및 관리 헬퍼 --- */
+  var TAIL_DIRECTIONS = [
+    'bottom-left', 'bottom-center', 'bottom-right',
+    'right', 'top-right', 'top-center', 'top-left', 'left', 'none'
+  ];
+
+  function getActiveTextItem() {
+    if (!state.textItems || state.textItems.length === 0) {
+      state.textItems = [{
+        id: 'bubble_1',
+        text: state.text || '',
+        textColor: state.textColor || '#ffffff',
+        fontSize: state.fontSize || 32,
+        textX: (state.textX !== undefined) ? state.textX : 50,
+        textY: (state.textY !== undefined) ? state.textY : 50,
+        bubble: state.bubble || 'none',
+        bubbleColor: state.bubbleColor || '#ffffff',
+        bubbleTail: state.bubbleTail || 'bottom-left',
+        fontFamily: state.fontFamily || "'Noto Sans KR', sans-serif"
+      }];
+      state.selectedTextItemId = 'bubble_1';
+    }
+    var item = state.textItems.find(function (t) { return t.id === state.selectedTextItemId; });
+    if (!item) {
+      item = state.textItems[0];
+      state.selectedTextItemId = item.id;
+    }
+    return item;
+  }
+
+  function syncActiveTextItemToState() {
+    var item = getActiveTextItem();
+    state.text = item.text;
+    state.textColor = item.textColor;
+    state.fontSize = item.fontSize;
+    state.textX = item.textX;
+    state.textY = item.textY;
+    state.bubble = item.bubble;
+    state.bubbleColor = item.bubbleColor;
+    state.bubbleTail = item.bubbleTail;
+    state.fontFamily = item.fontFamily;
+  }
+
+  function selectTextItem(id) {
+    state.selectedTextItemId = id;
+    selectedStickerId = null;
+    syncActiveTextItemToState();
+    syncUiFromState();
+    renderPreview();
+  }
+
+  function addTextItem() {
+    if (!state.textItems) state.textItems = [];
+    var newId = 'bubble_' + Date.now();
+    var count = state.textItems.length;
+    var yPos = 75;
+    if (count % 3 === 1) yPos = 25;
+    else if (count % 3 === 2) yPos = 50;
+
+    var newItem = {
+      id: newId,
+      text: '새 말풍선',
+      textColor: state.textColor || '#ffffff',
+      fontSize: Math.min(36, state.fontSize || 32),
+      textX: 50,
+      textY: yPos,
+      bubble: 'speech',
+      bubbleColor: '#ffffff',
+      bubbleTail: 'bottom-left',
+      fontFamily: state.fontFamily || "'Noto Sans KR', sans-serif"
+    };
+
+    state.textItems.push(newItem);
+    selectTextItem(newId);
+    pushHistory();
+    Utils.showToast(toastEl, '새 말풍선이 추가되었습니다. 캔버스에서 드래그하여 배치하세요!', 'success');
+    if (textInput) {
+      textInput.focus();
+      textInput.select();
+    }
+  }
+
+  function deleteTextItemById(id) {
+    var items = state.textItems || [];
+    if (items.length <= 1) {
+      var first = items[0];
+      first.text = '';
+      first.bubble = 'none';
+      selectTextItem(first.id);
+      renderPreview();
+      pushHistory();
+      Utils.showToast(toastEl, '말풍선이 초기화되었습니다.', 'info');
+      return;
+    }
+
+    var idx = items.findIndex(function (t) { return t.id === id; });
+    if (idx !== -1) {
+      items.splice(idx, 1);
+      var nextItem = items[Math.min(idx, items.length - 1)];
+      selectTextItem(nextItem.id);
+      renderPreview();
+      pushHistory();
+      Utils.showToast(toastEl, '말풍선이 삭제되었습니다.', 'info');
+    }
+  }
+
+  function deleteSelectedTextItem() {
+    if (state.selectedTextItemId) {
+      deleteTextItemById(state.selectedTextItemId);
+    }
+  }
+
+  function getTailShortLabel(tail) {
+    var map = {
+      'bottom-left': '↙ 꼬리',
+      'bottom-center': '⬇ 꼬리',
+      'bottom-right': '↘ 꼬리',
+      'top-left': '↖ 꼬리',
+      'top-center': '⬆ 꼬리',
+      'top-right': '↗ 꼬리',
+      'left': '⬅ 꼬리',
+      'right': '➡ 꼬리',
+      'none': '🚫 없음'
+    };
+    return map[tail] || '꼬리';
+  }
+
+  function cycleActiveTail() {
+    var item = getActiveTextItem();
+    var cur = item.bubbleTail || 'bottom-left';
+    var idx = TAIL_DIRECTIONS.indexOf(cur);
+    var next = TAIL_DIRECTIONS[(idx + 1) % TAIL_DIRECTIONS.length];
+    item.bubbleTail = next;
+    state.bubbleTail = next;
+    var allTailBtns = document.querySelectorAll('#tailDirRow .tail-btn');
+    allTailBtns.forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tail === next);
+    });
+    renderPreview();
+    updateCanvasSelectionOverlay();
+    pushHistory();
+  }
+
+  function updateCanvasSelectionOverlay() {
+    var overlay = document.getElementById('canvasSelectionOverlay');
+    var boxEl = document.getElementById('selBoundingBox');
+    var tagEl = document.getElementById('selTag');
+    var tailBtn = document.getElementById('selTailBtn');
+    var tailText = document.getElementById('selTailText');
+    if (!overlay || !boxEl) return;
+
+    if (!previewCanvas) {
+      overlay.hidden = true;
+      return;
+    }
+
+    var rect = previewCanvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      overlay.hidden = true;
+      return;
+    }
+
+    var size = Utils.getOutputSize(state.ratio, 400);
+    var scaleX = rect.width / size.w;
+    var scaleY = rect.height / size.h;
+
+    if (selectedStickerId) {
+      var stkBounds = Renderer.getStickersBounds(state, 400);
+      var sb = stkBounds.find(function (item) { return item.id === selectedStickerId; });
+      if (!sb) {
+        overlay.hidden = true;
+        return;
+      }
+      boxEl.style.left = Math.round(sb.x * scaleX) + 'px';
+      boxEl.style.top = Math.round(sb.y * scaleY) + 'px';
+      boxEl.style.width = Math.round(sb.w * scaleX) + 'px';
+      boxEl.style.height = Math.round(sb.h * scaleY) + 'px';
+      if (tagEl) tagEl.textContent = '스티커';
+      if (tailBtn) tailBtn.hidden = true;
+      overlay.hidden = false;
+      return;
+    }
+
+    if (state.selectedTextItemId) {
+      var allTextBounds = Renderer.getTextItemsBounds(state, 400);
+      var tb = allTextBounds.find(function (item) { return item.id === state.selectedTextItemId; });
+      if (!tb) {
+        overlay.hidden = true;
+        return;
+      }
+      var item = tb.item || getActiveTextItem();
+      boxEl.style.left = Math.round(tb.x * scaleX) + 'px';
+      boxEl.style.top = Math.round(tb.y * scaleY) + 'px';
+      boxEl.style.width = Math.round(tb.w * scaleX) + 'px';
+      boxEl.style.height = Math.round(tb.h * scaleY) + 'px';
+
+      var itemIdx = (state.textItems || []).findIndex(function (t) { return t.id === item.id; });
+      if (tagEl) tagEl.textContent = '말풍선 ' + (itemIdx + 1);
+
+      if (tailBtn) {
+        if (item.bubble && item.bubble !== 'none') {
+          tailBtn.hidden = false;
+          if (tailText) tailText.textContent = getTailShortLabel(item.bubbleTail || 'bottom-left');
+        } else {
+          tailBtn.hidden = true;
+        }
+      }
+      overlay.hidden = false;
+      return;
+    }
+
+    overlay.hidden = true;
+  }
+
+  function renderTextItemsChips() {
+    var container = document.getElementById('textItemsChips');
+    var delBtn = document.getElementById('deleteTextItemBtn');
+    if (!container) return;
+
+    var items = state.textItems || [];
+    container.innerHTML = '';
+
+    items.forEach(function (item, idx) {
+      var isActive = (item.id === state.selectedTextItemId);
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'text-item-chip' + (isActive ? ' active' : '');
+      chip.dataset.id = item.id;
+
+      var icon = '💬';
+      if (item.bubble === 'round') icon = '🫧';
+      else if (item.bubble === 'think') icon = '💭';
+      else if (item.bubble === 'shout') icon = '💥';
+      else if (item.bubble === 'square') icon = '⬛';
+      else if (item.bubble === 'whisper') icon = '🗨️';
+      else if (item.bubble === 'none') icon = '✍️';
+
+      var textSnippet = item.text ? item.text.trim().substring(0, 8) : '말풍선 ' + (idx + 1);
+
+      var label = document.createElement('span');
+      label.className = 'text-item-chip-label';
+      label.textContent = icon + ' ' + textSnippet;
+      chip.appendChild(label);
+
+      if (items.length > 1) {
+        var miniDel = document.createElement('span');
+        miniDel.className = 'text-item-chip-del';
+        miniDel.title = '이 말풍선 삭제';
+        miniDel.innerHTML = '×';
+        miniDel.addEventListener('click', function (e) {
+          e.stopPropagation();
+          deleteTextItemById(item.id);
+        });
+        chip.appendChild(miniDel);
+      }
+
+      chip.addEventListener('click', function () {
+        selectTextItem(item.id);
+      });
+
+      container.appendChild(chip);
+    });
+
+    if (delBtn) {
+      delBtn.disabled = false;
+      delBtn.title = (items.length > 1) ? '현재 선택된 말풍선을 삭제합니다' : '현재 말풍선을 초기화합니다';
+    }
+  }
+
   function bindShortcuts() {
     window.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -228,11 +540,16 @@ var Editor = (function () {
         e.preventDefault(); redo();
       }
 
-      /* 키보드 Delete / Backspace 키로 선택한 스티커 개별 삭제 */
+      /* 키보드 Delete / Backspace 키로 선택한 스티커/말풍선 개별 삭제 */
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedStickerId) {
-        e.preventDefault();
-        deleteStickerById(selectedStickerId);
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedStickerId) {
+          e.preventDefault();
+          deleteStickerById(selectedStickerId);
+        } else if (state.selectedTextItemId) {
+          e.preventDefault();
+          deleteSelectedTextItem();
+        }
       }
     });
   }
@@ -546,6 +863,8 @@ var Editor = (function () {
     if (fontFamilySelect) {
       fontFamilySelect.addEventListener('change', function (e) {
         state.fontFamily = e.target.value;
+        var activeItem = getActiveTextItem();
+        activeItem.fontFamily = e.target.value;
         syncFontPickerUi(state.fontFamily);
         renderPreview();
         pushHistory();
@@ -559,9 +878,13 @@ var Editor = (function () {
         var btn = e.target.closest('.chip-btn');
         if (!btn) return;
         var txt = btn.dataset.text;
-        textInput.value = txt;
+        var activeItem = getActiveTextItem();
+        activeItem.text = txt;
         state.text = txt;
+        textInput.value = txt;
+        renderTextItemsChips();
         renderPreview();
+        updateCanvasSelectionOverlay();
         pushHistory();
       });
     }
@@ -579,21 +902,63 @@ var Editor = (function () {
 
     /* 문구 입력 */
     textInput.addEventListener('input', function (e) {
+      var activeItem = getActiveTextItem();
+      activeItem.text = e.target.value;
       state.text = e.target.value;
+      renderTextItemsChips();
       renderPreview();
+      updateCanvasSelectionOverlay();
     });
     textInput.addEventListener('change', pushHistory);
 
-    /* 글자 크기 */
-    fontSizeInput.addEventListener('input', function (e) {
-      state.fontSize = parseInt(e.target.value, 10);
-      fontSizeVal.textContent = state.fontSize;
-      renderPreview();
-    });
-    fontSizeInput.addEventListener('change', pushHistory);
+    /* 글자 크기 (슬라이더 및 키보드 직접 입력) */
+    if (fontSizeInput) {
+      fontSizeInput.addEventListener('input', function (e) {
+        var num = parseInt(e.target.value, 10);
+        var activeItem = getActiveTextItem();
+        activeItem.fontSize = num;
+        state.fontSize = num;
+        if (fontSizeNum) fontSizeNum.value = num;
+        if (fontSizeVal) fontSizeVal.textContent = num;
+        renderPreview();
+        updateCanvasSelectionOverlay();
+      });
+      fontSizeInput.addEventListener('change', pushHistory);
+    }
+    if (fontSizeNum) {
+      fontSizeNum.addEventListener('input', function (e) {
+        var num = parseInt(e.target.value, 10);
+        if (isNaN(num)) return;
+        if (num >= 12 && num <= 120) {
+          var activeItem = getActiveTextItem();
+          activeItem.fontSize = num;
+          state.fontSize = num;
+          if (fontSizeInput) fontSizeInput.value = num;
+          if (fontSizeVal) fontSizeVal.textContent = num;
+          renderPreview();
+          updateCanvasSelectionOverlay();
+        }
+      });
+      fontSizeNum.addEventListener('change', function () {
+        var num = parseInt(fontSizeNum.value, 10);
+        if (isNaN(num) || num < 12) num = 12;
+        if (num > 120) num = 120;
+        fontSizeNum.value = num;
+        var activeItem = getActiveTextItem();
+        activeItem.fontSize = num;
+        state.fontSize = num;
+        if (fontSizeInput) fontSizeInput.value = num;
+        if (fontSizeVal) fontSizeVal.textContent = num;
+        renderPreview();
+        updateCanvasSelectionOverlay();
+        pushHistory();
+      });
+    }
 
     /* 기본 글자 색 */
     textColorInput.addEventListener('input', function (e) {
+      var activeItem = getActiveTextItem();
+      activeItem.textColor = e.target.value;
       state.textColor = e.target.value;
       colorHex.textContent = e.target.value;
       renderPreview();
@@ -605,6 +970,8 @@ var Editor = (function () {
       var btn = e.target.closest('.cpre');
       if (!btn) return;
       var c = btn.dataset.color;
+      var activeItem = getActiveTextItem();
+      activeItem.textColor = c;
       state.textColor = c;
       textColorInput.value = c;
       colorHex.textContent = c;
@@ -618,32 +985,75 @@ var Editor = (function () {
         document.querySelectorAll('.pos-btn').forEach(function (b) { b.classList.remove('active'); });
         btn.classList.add('active');
         var pos = btn.dataset.pos;
-        if (pos === 'top') state.textY = 15;
-        else if (pos === 'center') state.textY = 50;
-        else state.textY = 85;
-        textYInput.value = state.textY;
-        textYVal.textContent = state.textY + '%';
+        var yVal = 50;
+        if (pos === 'top') yVal = 15;
+        else if (pos === 'center') yVal = 50;
+        else yVal = 85;
+        var activeItem = getActiveTextItem();
+        activeItem.textY = yVal;
+        state.textY = yVal;
+        textYInput.value = yVal;
+        textYVal.textContent = yVal + '%';
         renderPreview();
+        updateCanvasSelectionOverlay();
         pushHistory();
       });
     });
 
     /* Y 위치 슬라이더 */
     textYInput.addEventListener('input', function (e) {
-      state.textY = parseInt(e.target.value, 10);
+      var activeItem = getActiveTextItem();
+      activeItem.textY = parseInt(e.target.value, 10);
+      state.textY = activeItem.textY;
       textYVal.textContent = state.textY + '%';
       document.querySelectorAll('.pos-btn').forEach(function (b) { b.classList.remove('active'); });
       renderPreview();
+      updateCanvasSelectionOverlay();
     });
     textYInput.addEventListener('change', pushHistory);
 
     /* X 위치 슬라이더 */
     textXInput.addEventListener('input', function (e) {
-      state.textX = parseInt(e.target.value, 10);
+      var activeItem = getActiveTextItem();
+      activeItem.textX = parseInt(e.target.value, 10);
+      state.textX = activeItem.textX;
       textXVal.textContent = state.textX + '%';
       renderPreview();
+      updateCanvasSelectionOverlay();
     });
     textXInput.addEventListener('change', pushHistory);
+
+    /* 다중 말풍선 추가 및 삭제 버튼 */
+    if (addTextItemBtn) {
+      addTextItemBtn.addEventListener('click', function () {
+        addTextItem();
+      });
+    }
+    if (deleteTextItemBtn) {
+      deleteTextItemBtn.addEventListener('click', function () {
+        deleteSelectedTextItem();
+      });
+    }
+
+    /* 인-캔버스 오버레이 빠른 액션 버튼 */
+    if (selTailBtn) {
+      selTailBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        cycleActiveTail();
+      });
+    }
+    if (selDelBtn) {
+      selDelBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (selectedStickerId) {
+          deleteStickerById(selectedStickerId);
+        } else if (state.selectedTextItemId) {
+          deleteSelectedTextItem();
+        }
+      });
+    }
+
+    window.addEventListener('resize', updateCanvasSelectionOverlay);
 
     /* 스티커 카테고리 탭 필터 */
     var stickerTabs = document.getElementById('stickerTabs');
@@ -681,8 +1091,10 @@ var Editor = (function () {
         };
         state.stickers.push(newSticker);
         selectedStickerId = newSticker.id;
+        state.selectedTextItemId = null;
         renderActiveStickersUi();
         renderPreview();
+        updateCanvasSelectionOverlay();
         pushHistory();
         Utils.showToast(toastEl, icon + ' ' + getStickerName(icon) + ' 스티커가 추가되었습니다. 캔버스에서 드래그하여 배치하세요.', 'success');
       });
@@ -696,6 +1108,7 @@ var Editor = (function () {
         selectedStickerId = null;
         renderActiveStickersUi();
         renderPreview();
+        updateCanvasSelectionOverlay();
         pushHistory();
         Utils.showToast(toastEl, '모든 스티커가 제거되었습니다.', 'success');
       });
@@ -712,6 +1125,7 @@ var Editor = (function () {
           s.size = parseInt(e.target.value, 10);
           if (stkScaleVal) stkScaleVal.textContent = s.size + 'px';
           renderPreview();
+          updateCanvasSelectionOverlay();
         }
       });
       stkScaleSlider.addEventListener('change', pushHistory);
@@ -724,6 +1138,7 @@ var Editor = (function () {
         btn.classList.add('active');
         state.ratio = btn.dataset.ratio;
         renderPreview();
+        updateCanvasSelectionOverlay();
         pushHistory();
       });
     });
@@ -734,15 +1149,19 @@ var Editor = (function () {
       if (!btn) return;
       document.querySelectorAll('.bub-btn').forEach(function (b) { b.classList.remove('active'); });
       btn.classList.add('active');
+      var activeItem = getActiveTextItem();
+      activeItem.bubble = btn.dataset.bubble;
       state.bubble = btn.dataset.bubble;
 
       if (bubbleColorSec) {
-        bubbleColorSec.hidden = (state.bubble === 'none');
+        bubbleColorSec.hidden = (activeItem.bubble === 'none');
       }
       if (bubbleTailSec) {
-        bubbleTailSec.hidden = (state.bubble === 'none');
+        bubbleTailSec.hidden = (activeItem.bubble === 'none');
       }
+      renderTextItemsChips();
       renderPreview();
+      updateCanvasSelectionOverlay();
       pushHistory();
     });
 
@@ -752,12 +1171,15 @@ var Editor = (function () {
       tailDirRow.addEventListener('click', function (e) {
         var btn = e.target.closest('.tail-btn');
         if (!btn) return;
-        state.bubbleTail = btn.dataset.tail || 'bottom-left';
+        var activeItem = getActiveTextItem();
+        activeItem.bubbleTail = btn.dataset.tail || 'bottom-left';
+        state.bubbleTail = activeItem.bubbleTail;
         var allTailBtns = tailDirRow.querySelectorAll('.tail-btn');
         allTailBtns.forEach(function (b) {
           b.classList.toggle('active', b.dataset.tail === state.bubbleTail);
         });
         renderPreview();
+        updateCanvasSelectionOverlay();
         pushHistory();
       });
     }
@@ -765,6 +1187,8 @@ var Editor = (function () {
     /* 말풍선 색상 피커 */
     if (bubbleColorInput) {
       bubbleColorInput.addEventListener('input', function (e) {
+        var activeItem = getActiveTextItem();
+        activeItem.bubbleColor = e.target.value;
         state.bubbleColor = e.target.value;
         if (bubbleColorHex) bubbleColorHex.textContent = e.target.value;
         renderPreview();
@@ -779,6 +1203,8 @@ var Editor = (function () {
         var btn = e.target.closest('.cpre');
         if (!btn) return;
         var c = btn.dataset.color;
+        var activeItem = getActiveTextItem();
+        activeItem.bubbleColor = c;
         state.bubbleColor = c;
         if (bubbleColorInput) bubbleColorInput.value = c;
         if (bubbleColorHex) bubbleColorHex.textContent = c;
@@ -900,6 +1326,7 @@ var Editor = (function () {
     var start = textInput.selectionStart;
     var end = textInput.selectionEnd;
     var val = textInput.value;
+    var activeItem = getActiveTextItem();
 
     if (start !== undefined && end !== undefined && start < end) {
       /* 특정 영역을 드래그 선택한 경우 */
@@ -908,12 +1335,15 @@ var Editor = (function () {
       selected = selected.replace(/\[(.*?)\]\(#.*?\)/g, '$1');
       var formatted = '[' + selected + '](' + color + ')';
       textInput.value = val.substring(0, start) + formatted + val.substring(end);
+      activeItem.text = textInput.value;
       state.text = textInput.value;
+      renderTextItemsChips();
       renderPreview();
       pushHistory();
       Utils.showToast(toastEl, '선택한 문구에 색상이 적용되었습니다.', 'success');
     } else {
       /* 선택 영역이 없을 때는 기본 글자 색 변경 */
+      activeItem.textColor = color;
       state.textColor = color;
       textColorInput.value = color;
       colorHex.textContent = color;
@@ -1148,17 +1578,17 @@ var Editor = (function () {
         return;
       }
 
-      /* 2. 텍스트/말풍선 히트 체크 */
-      var textBounds = Renderer.getTextBounds(state, 400);
+      /* 2. 텍스트/말풍선 히트 체크 (다중 말풍선 지원) */
+      var allTextBounds = Renderer.getTextItemsBounds(state, 400);
       var isOverText = false;
-      if (textBounds) {
-        var margin = 15;
-        isOverText = (
-          pt.x >= textBounds.x - margin &&
-          pt.x <= textBounds.x + textBounds.w + margin &&
-          pt.y >= textBounds.y - margin &&
-          pt.y <= textBounds.y + textBounds.h + margin
-        );
+      for (var t = allTextBounds.length - 1; t >= 0; t--) {
+        var tb = allTextBounds[t];
+        var margin = 12;
+        if (pt.x >= tb.x - margin && pt.x <= tb.x + tb.w + margin &&
+            pt.y >= tb.y - margin && pt.y <= tb.y + tb.h + margin) {
+          isOverText = true;
+          break;
+        }
       }
       if (isOverText) {
         previewCanvas.style.cursor = 'grab';
@@ -1189,39 +1619,42 @@ var Editor = (function () {
           dragTarget = 'sticker';
           activeStickerIndex = sb.index;
           selectedStickerId = state.stickers[sb.index].id;
+          state.selectedTextItemId = null;
           renderActiveStickersUi();
           dragStartStickerX = state.stickers[sb.index].x;
           dragStartStickerY = state.stickers[sb.index].y;
           previewCanvas.style.cursor = 'grabbing';
+          updateCanvasSelectionOverlay();
           if (e.cancelable) e.preventDefault();
           return;
         }
       }
 
-      /* 스티커 외 영역 클릭 시 선택 해제 */
+      /* 우선순위 2: 텍스트/말풍선 클릭 판정 (다중 말풍선 선택 지원) */
+      var allTextBounds = Renderer.getTextItemsBounds(state, 400);
+      for (var t = allTextBounds.length - 1; t >= 0; t--) {
+        var tb = allTextBounds[t];
+        var margin = 12;
+        if (pt.x >= tb.x - margin && pt.x <= tb.x + tb.w + margin &&
+            pt.y >= tb.y - margin && pt.y <= tb.y + tb.h + margin) {
+          dragTarget = 'text';
+          selectedStickerId = null;
+          selectTextItem(tb.id);
+          var activeItem = getActiveTextItem();
+          dragStartTextX = (activeItem.textX !== undefined) ? activeItem.textX : 50;
+          dragStartTextY = (activeItem.textY !== undefined) ? activeItem.textY : 50;
+          previewCanvas.style.cursor = 'grabbing';
+          updateCanvasSelectionOverlay();
+          if (e.cancelable) e.preventDefault();
+          return;
+        }
+      }
+
+      /* 스티커 및 말풍선 외 영역 클릭 시 스티커 선택 해제 */
       if (selectedStickerId) {
         selectedStickerId = null;
         renderActiveStickersUi();
-      }
-
-      /* 우선순위 2: 텍스트/말풍선 클릭 판정 */
-      var textBounds = Renderer.getTextBounds(state, 400);
-      if (textBounds) {
-        var margin = 15;
-        var hitText = (
-          pt.x >= textBounds.x - margin &&
-          pt.x <= textBounds.x + textBounds.w + margin &&
-          pt.y >= textBounds.y - margin &&
-          pt.y <= textBounds.y + textBounds.h + margin
-        );
-        if (hitText) {
-          dragTarget = 'text';
-          dragStartTextX = state.textX;
-          dragStartTextY = state.textY;
-          previewCanvas.style.cursor = 'grabbing';
-          if (e.cancelable) e.preventDefault();
-          return;
-        }
+        updateCanvasSelectionOverlay();
       }
 
       /* 우선순위 3: 이미지 영역 클릭 시 배경 사진 팬(Pan) 이동 */
@@ -1247,9 +1680,12 @@ var Editor = (function () {
       var dyPercent = ((pos.y - dragStartMouseY) / rect.height) * 100;
 
       if (dragTarget === 'text') {
+        var activeItem = getActiveTextItem();
         var newX = Math.round(Math.max(5, Math.min(95, dragStartTextX + dxPercent)));
         var newY = Math.round(Math.max(5, Math.min(95, dragStartTextY + dyPercent)));
-        if (newX !== state.textX || newY !== state.textY) {
+        if (newX !== activeItem.textX || newY !== activeItem.textY) {
+          activeItem.textX = newX;
+          activeItem.textY = newY;
           state.textX = newX;
           state.textY = newY;
           textXInput.value = newX;
@@ -1258,12 +1694,14 @@ var Editor = (function () {
           textYVal.textContent = newY + '%';
           document.querySelectorAll('.pos-btn').forEach(function (b) { b.classList.remove('active'); });
           scheduleRender();
+          updateCanvasSelectionOverlay();
         }
       } else if (dragTarget === 'sticker' && activeStickerIndex >= 0 && state.stickers[activeStickerIndex]) {
         var s = state.stickers[activeStickerIndex];
         s.x = Math.round(Math.max(5, Math.min(95, dragStartStickerX + dxPercent)));
         s.y = Math.round(Math.max(5, Math.min(95, dragStartStickerY + dyPercent)));
         scheduleRender();
+        updateCanvasSelectionOverlay();
       } else if (dragTarget === 'image') {
         /* 이미지 팬 이동 */
         var newPanX = Math.round(Math.max(-100, Math.min(100, dragStartPanX + dxPercent * 1.2)));
@@ -1292,6 +1730,7 @@ var Editor = (function () {
         activeStickerIndex = -1;
         previewCanvas.style.cursor = 'default';
         renderPreview();
+        updateCanvasSelectionOverlay();
         pushHistory();
       }
     }
@@ -1339,33 +1778,36 @@ var Editor = (function () {
 
   /* --- UI 요소와 상태 동기화 --- */
   function syncUiFromState() {
-    textInput.value = state.text || '';
-    fontSizeInput.value = state.fontSize || 32;
-    fontSizeVal.textContent = state.fontSize || 32;
-    textColorInput.value = state.textColor || '#ffffff';
-    colorHex.textContent = state.textColor || '#ffffff';
+    var activeItem = getActiveTextItem();
+    textInput.value = activeItem.text || '';
+    fontSizeInput.value = activeItem.fontSize || 32;
+    if (fontSizeNum) fontSizeNum.value = activeItem.fontSize || 32;
+    fontSizeVal.textContent = activeItem.fontSize || 32;
+    textColorInput.value = activeItem.textColor || '#ffffff';
+    colorHex.textContent = activeItem.textColor || '#ffffff';
 
-    textXInput.value = state.textX || 50;
-    textXVal.textContent = (state.textX || 50) + '%';
-    textYInput.value = state.textY || 50;
-    textYVal.textContent = (state.textY || 50) + '%';
+    textXInput.value = (activeItem.textX !== undefined) ? activeItem.textX : 50;
+    textXVal.textContent = ((activeItem.textX !== undefined) ? activeItem.textX : 50) + '%';
+    textYInput.value = (activeItem.textY !== undefined) ? activeItem.textY : 50;
+    textYVal.textContent = ((activeItem.textY !== undefined) ? activeItem.textY : 50) + '%';
 
     bgColorInput.value = state.bgColor || '#f5f5f5';
     bgColorHex.textContent = state.bgColor || '#f5f5f5';
 
-    if (bubbleColorInput) bubbleColorInput.value = state.bubbleColor || '#ffffff';
-    if (bubbleColorHex) bubbleColorHex.textContent = state.bubbleColor || '#ffffff';
-    if (bubbleColorSec) bubbleColorSec.hidden = (state.bubble === 'none');
-    if (bubbleTailSec) bubbleTailSec.hidden = (state.bubble === 'none');
+    if (bubbleColorInput) bubbleColorInput.value = activeItem.bubbleColor || '#ffffff';
+    if (bubbleColorHex) bubbleColorHex.textContent = activeItem.bubbleColor || '#ffffff';
+    if (bubbleColorSec) bubbleColorSec.hidden = (activeItem.bubble === 'none');
+    if (bubbleTailSec) bubbleTailSec.hidden = (activeItem.bubble === 'none');
 
-    var curTail = state.bubbleTail || 'bottom-left';
+    var curTail = activeItem.bubbleTail || 'bottom-left';
     var tailBtns = document.querySelectorAll('#tailDirRow .tail-btn');
     tailBtns.forEach(function (b) {
       b.classList.toggle('active', b.dataset.tail === curTail);
     });
 
-    if (fontFamilySelect) fontFamilySelect.value = state.fontFamily || "'Noto Sans KR', sans-serif";
-    syncFontPickerUi(state.fontFamily);
+    var curFont = activeItem.fontFamily || state.fontFamily || "'Noto Sans KR', sans-serif";
+    if (fontFamilySelect) fontFamilySelect.value = curFont;
+    syncFontPickerUi(curFont);
 
     updateFitModeUi();
     if (imgZoomInput) imgZoomInput.value = state.imageZoom || 100;
@@ -1377,13 +1819,15 @@ var Editor = (function () {
       b.classList.toggle('active', b.dataset.ratio === state.ratio);
     });
     document.querySelectorAll('.bub-btn').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.bubble === state.bubble);
+      b.classList.toggle('active', b.dataset.bubble === activeItem.bubble);
     });
 
     var thumbs = document.querySelectorAll('.hamster-thumb');
     thumbs.forEach(function (t) { t.classList.toggle('active', t.dataset.id === state.hamsterId); });
 
     renderActiveStickersUi();
+    renderTextItemsChips();
+    updateCanvasSelectionOverlay();
     updateClearBtn();
   }
 
@@ -1513,6 +1957,8 @@ var Editor = (function () {
         var val = item.dataset.value;
         if (!val) return;
         state.fontFamily = val;
+        var activeItem = getActiveTextItem();
+        activeItem.fontFamily = val;
         syncFontPickerUi(val);
         toggleFontDrawer(false);
         renderPreview();
@@ -1566,6 +2012,7 @@ var Editor = (function () {
   function renderPreview() {
     state.selectedStickerId = selectedStickerId;
     Renderer.render(previewCanvas, state, 400);
+    updateCanvasSelectionOverlay();
   }
 
   /* --- 다운로드 (1080px 또는 3840px 4K 초고화질 / PNG, JPEG, WebP) --- */
@@ -1601,6 +2048,28 @@ var Editor = (function () {
 
   /* --- 외부에서 상태 설정 (템플릿 불러오기용) --- */
   function loadState(tpl) {
+    if (tpl.textItems && tpl.textItems.length > 0) {
+      state.textItems = JSON.parse(JSON.stringify(tpl.textItems));
+      state.selectedTextItemId = tpl.selectedTextItemId || state.textItems[0].id;
+      syncActiveTextItemToState();
+    } else {
+      var item = {
+        id: 'bubble_1',
+        text: tpl.text || '',
+        fontSize: tpl.fontSize || 32,
+        fontFamily: tpl.fontFamily || "'Noto Sans KR', sans-serif",
+        textColor: tpl.textColor || '#ffffff',
+        textX: (tpl.textX !== undefined) ? tpl.textX : 50,
+        textY: (tpl.textY !== undefined) ? tpl.textY : 50,
+        bubble: tpl.bubble || 'none',
+        bubbleColor: tpl.bubbleColor || '#ffffff',
+        bubbleTail: tpl.bubbleTail || 'bottom-left'
+      };
+      state.textItems = [item];
+      state.selectedTextItemId = 'bubble_1';
+      syncActiveTextItemToState();
+    }
+
     state.text = tpl.text || '';
     state.fontSize = tpl.fontSize || 32;
     state.fontFamily = tpl.fontFamily || "'Noto Sans KR', sans-serif";

@@ -40,9 +40,13 @@ var Renderer = (function () {
       drawStickers(ctx, state.stickers, W, H, state.selectedStickerId, outputWidth <= 600);
     }
 
-    /* 4. 문구 및 말풍선 레이아웃 통합 렌더링 (부분 글자색 지원) */
-    if (state.text) {
-      drawTextAndBubble(ctx, state, W, H);
+    /* 4. 문구 및 말풍선 레이아웃 통합 렌더링 (다중 말풍선 및 부분 글자색 지원) */
+    var items = getTextItemsList(state);
+    for (var ti = 0; ti < items.length; ti++) {
+      var item = items[ti];
+      if (item.text || (item.bubble && item.bubble !== 'none')) {
+        drawTextAndBubble(ctx, item, W, H, outputWidth <= 600, item.id === state.selectedTextItemId);
+      }
     }
   }
 
@@ -204,10 +208,10 @@ var Renderer = (function () {
   }
 
   /* --- 텍스트 및 말풍선 레이아웃 계산 (바운딩 박스 & 히트테스트용 공통) --- */
-  function computeLayout(ctx, state, W, H) {
+  function computeLayout(ctx, item, W, H) {
     var scale = W / 400;
-    var fontSize = Math.round(state.fontSize * scale);
-    var fontFamily = state.fontFamily || "'Noto Sans KR', sans-serif";
+    var fontSize = Math.round((item.fontSize || 32) * scale);
+    var fontFamily = item.fontFamily || "'Noto Sans KR', sans-serif";
 
     /* Dongle 폰트 등은 글꼴 특성상 1.4배 키워야 비율이 맞음 */
     if (fontFamily.indexOf('Dongle') !== -1) {
@@ -217,37 +221,40 @@ var Renderer = (function () {
     var font = 'bold ' + fontSize + 'px ' + fontFamily;
     ctx.font = font;
 
-    var hasBubble = state.bubble && state.bubble !== 'none';
+    var hasBubble = item.bubble && item.bubble !== 'none';
     var maxAllowWidth = hasBubble ? W * 0.72 : W * 0.85;
 
     /* 말풍선 종류별 패딩 */
     var padX = fontSize * 1.0;
     var padY = fontSize * 0.75;
-    if (state.bubble === 'shout') {
+    if (item.bubble === 'shout') {
       padX = fontSize * 1.4;
       padY = fontSize * 1.1;
-    } else if (state.bubble === 'round') {
+    } else if (item.bubble === 'round') {
       padX = fontSize * 1.25;
       padY = fontSize * 0.9;
-    } else if (state.bubble === 'think') {
+    } else if (item.bubble === 'think') {
       padX = fontSize * 1.15;
       padY = fontSize * 0.85;
     }
 
     /* 토큰 기반 줄바꿈 계산 */
+    var rawText = (item.text !== undefined && item.text !== null) ? item.text : '';
     var contentMaxWidth = Math.max(fontSize * 2, maxAllowWidth - padX * 2);
-    var wrappedLines = wrapFormattedText(ctx, state.text, contentMaxWidth, state.textColor || '#ffffff');
+    var wrappedLines = wrapFormattedText(ctx, rawText, contentMaxWidth, item.textColor || '#ffffff');
     var lineHeight = fontSize * 1.32;
     var textH = wrappedLines.length * lineHeight;
     var textW = getMaxLineWidthFromLines(ctx, wrappedLines);
 
     /* 말풍선 전체 크기 (텍스트를 완전히 감싸도록 계산) */
-    var bw = Math.min(W * 0.92, Math.max(fontSize * 2.5, textW + padX * 2));
+    var bw = Math.min(W * 0.92, Math.max(fontSize * 2.8, textW + padX * 2));
     var bh = Math.max(fontSize * 2, textH + padY * 2);
 
-    /* 위치 (state.textX, state.textY 기준) */
-    var cx = W * (state.textX / 100);
-    var cy = H * (state.textY / 100);
+    /* 위치 (item.textX, item.textY 기준) */
+    var textX = (item.textX !== undefined) ? item.textX : 50;
+    var textY = (item.textY !== undefined) ? item.textY : 50;
+    var cx = W * (textX / 100);
+    var cy = H * (textY / 100);
 
     var bx = cx - bw / 2;
     var by = cy - bh / 2;
@@ -280,63 +287,81 @@ var Renderer = (function () {
   }
 
   /* --- 말풍선 및 텍스트 렌더링 --- */
-  function drawTextAndBubble(ctx, state, W, H) {
-    var layout = computeLayout(ctx, state, W, H);
-    var bColor = state.bubbleColor || '#ffffff';
-    var defaultTextColor = state.textColor || '#ffffff';
+  function drawTextAndBubble(ctx, item, W, H, isPreview, isSelected) {
+    var layout = computeLayout(ctx, item, W, H);
+    var bColor = item.bubbleColor || '#ffffff';
+    var defaultTextColor = item.textColor || '#ffffff';
 
     /* 말풍선 렌더링 */
     if (layout.hasBubble) {
-      drawSpecificBubble(ctx, state.bubble, layout.bx, layout.by, layout.bw, layout.bh, layout.fontSize, bColor, state.bubbleTail || 'bottom-left');
+      drawSpecificBubble(ctx, item.bubble, layout.bx, layout.by, layout.bw, layout.bh, layout.fontSize, bColor, item.bubbleTail || 'bottom-left');
     }
 
     /* 텍스트 렌더링 */
-    ctx.save();
-    ctx.font = layout.font;
-    ctx.textBaseline = 'middle';
+    if (item.text) {
+      ctx.save();
+      ctx.font = layout.font;
+      ctx.textBaseline = 'middle';
 
-    var totalHeight = layout.wrappedLines.length * layout.lineHeight;
-    var startY = layout.cy - totalHeight / 2;
+      var totalHeight = layout.wrappedLines.length * layout.lineHeight;
+      var startY = layout.cy - totalHeight / 2;
 
-    var isBubbleLight = getLuminance(bColor) > 0.6;
+      var isBubbleLight = getLuminance(bColor) > 0.6;
 
-    for (var i = 0; i < layout.wrappedLines.length; i++) {
-      var line = layout.wrappedLines[i];
-      var ly = startY + (i + 0.5) * layout.lineHeight;
-      var lineWidth = getTokensLineWidth(ctx, line);
-      var curX = layout.cx - lineWidth / 2;
+      for (var i = 0; i < layout.wrappedLines.length; i++) {
+        var line = layout.wrappedLines[i];
+        var ly = startY + (i + 0.5) * layout.lineHeight;
+        var lineWidth = getTokensLineWidth(ctx, line);
+        var curX = layout.cx - lineWidth / 2;
 
-      for (var j = 0; j < line.length; j++) {
-        var token = line[j];
-        var tokenW = ctx.measureText(token.text).width;
-        var tokenColor = token.color || defaultTextColor;
-        var isTokenLight = getLuminance(tokenColor) > 0.6;
+        for (var j = 0; j < line.length; j++) {
+          var token = line[j];
+          var tokenW = ctx.measureText(token.text).width;
+          var tokenColor = token.color || defaultTextColor;
+          var isTokenLight = getLuminance(tokenColor) > 0.6;
 
-        ctx.fillStyle = tokenColor;
+          ctx.fillStyle = tokenColor;
 
-        if (!layout.hasBubble) {
-          /* 말풍선 없을 때 가독성 그림자 */
-          ctx.shadowColor = 'rgba(0,0,0,0.65)';
-          ctx.shadowBlur = layout.fontSize * 0.22;
-          ctx.shadowOffsetX = 1;
-          ctx.shadowOffsetY = 1;
-        } else {
-          /* 말풍선 있을 때 배경과 텍스트 대비 보정 외곽선 */
-          if ((isBubbleLight && isTokenLight) || (!isBubbleLight && !isTokenLight)) {
-            ctx.lineWidth = Math.max(2, Math.round(layout.fontSize * 0.08));
-            ctx.strokeStyle = isBubbleLight ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)';
-            ctx.lineJoin = 'round';
-            ctx.strokeText(token.text, curX, ly);
+          if (!layout.hasBubble) {
+            /* 말풍선 없을 때 가독성 그림자 */
+            ctx.shadowColor = 'rgba(0,0,0,0.65)';
+            ctx.shadowBlur = layout.fontSize * 0.22;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+          } else {
+            /* 말풍선 있을 때 배경과 텍스트 대비 보정 외곽선 */
+            if ((isBubbleLight && isTokenLight) || (!isBubbleLight && !isTokenLight)) {
+              ctx.lineWidth = Math.max(2, Math.round(layout.fontSize * 0.08));
+              ctx.strokeStyle = isBubbleLight ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)';
+              ctx.lineJoin = 'round';
+              ctx.strokeText(token.text, curX, ly);
+            }
+            ctx.shadowColor = 'transparent';
           }
-          ctx.shadowColor = 'transparent';
-        }
 
-        ctx.fillText(token.text, curX, ly);
-        curX += tokenW;
+          ctx.fillText(token.text, curX, ly);
+          curX += tokenW;
+        }
       }
+
+      ctx.restore();
     }
 
-    ctx.restore();
+    /* 미리보기 화면에서 선택된 말풍선 가이드 링/박스 */
+    if (isPreview && isSelected) {
+      ctx.save();
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = 'rgba(255, 107, 107, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      if (layout.hasBubble) {
+        drawRoundRect(ctx, layout.bx - 4, layout.by - 4, layout.bw + 8, layout.bh + 8, 10);
+      } else {
+        drawRoundRect(ctx, layout.cx - layout.textW / 2 - 8, layout.cy - layout.textH / 2 - 6, layout.textW + 16, layout.textH + 12, 6);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   /* --- 토큰 기반 자동 줄바꿈 --- */
@@ -781,32 +806,82 @@ var Renderer = (function () {
   }
 
   /**
-   * 마우스 드래그 히트테스트용 텍스트/말풍선 바운딩 박스 반환
+   * 다중 말풍선/문구 목록 정규화 헬퍼 (하위 호환 100% 보장)
    */
-  function getTextBounds(state, outputWidth) {
-    if (!state.text) return null;
+  function getTextItemsList(state) {
+    if (state.textItems && state.textItems.length > 0) {
+      return state.textItems;
+    }
+    if (state.text || (state.bubble && state.bubble !== 'none')) {
+      return [{
+        id: 'bubble_1',
+        text: state.text || '',
+        textColor: state.textColor || '#ffffff',
+        fontSize: state.fontSize || 32,
+        textX: (state.textX !== undefined) ? state.textX : 50,
+        textY: (state.textY !== undefined) ? state.textY : 50,
+        bubble: state.bubble || 'none',
+        bubbleColor: state.bubbleColor || '#ffffff',
+        bubbleTail: state.bubbleTail || 'bottom-left',
+        fontFamily: state.fontFamily || "'Noto Sans KR', sans-serif"
+      }];
+    }
+    return [];
+  }
+
+  /**
+   * 마우스 드래그/클릭 히트테스트용 전체 텍스트/말풍선 바운딩 박스 반환
+   */
+  function getTextItemsBounds(state, outputWidth) {
+    var items = getTextItemsList(state);
+    if (!items || items.length === 0) return [];
     var size = Utils.getOutputSize(state.ratio, outputWidth);
     var dummyCanvas = document.createElement('canvas');
     dummyCanvas.width = size.w;
     dummyCanvas.height = size.h;
     var ctx = dummyCanvas.getContext('2d');
-    var layout = computeLayout(ctx, state, size.w, size.h);
+    var bounds = [];
 
-    if (layout.hasBubble) {
-      return {
-        x: layout.bx,
-        y: layout.by,
-        w: layout.bw,
-        h: layout.bh + (layout.fontSize * 0.7)
-      };
-    } else {
-      return {
-        x: layout.cx - layout.textW / 2 - 15,
-        y: layout.cy - layout.textH / 2 - 10,
-        w: layout.textW + 30,
-        h: layout.textH + 20
-      };
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      if (!item.text && (!item.bubble || item.bubble === 'none')) continue;
+      var layout = computeLayout(ctx, item, size.w, size.h);
+      if (layout.hasBubble) {
+        bounds.push({
+          id: item.id,
+          index: i,
+          x: layout.bx,
+          y: layout.by,
+          w: layout.bw,
+          h: layout.bh + (layout.fontSize * 0.65),
+          item: item
+        });
+      } else {
+        bounds.push({
+          id: item.id,
+          index: i,
+          x: layout.cx - layout.textW / 2 - 15,
+          y: layout.cy - layout.textH / 2 - 10,
+          w: layout.textW + 30,
+          h: layout.textH + 20,
+          item: item
+        });
+      }
     }
+    return bounds;
+  }
+
+  /**
+   * 단일/선택된 텍스트/말풍선 바운딩 박스 반환 (하위 호환)
+   */
+  function getTextBounds(state, outputWidth) {
+    var all = getTextItemsBounds(state, outputWidth);
+    if (!all || all.length === 0) return null;
+    if (state.selectedTextItemId) {
+      var sel = all.find(function (b) { return b.id === state.selectedTextItemId; });
+      if (sel) return sel;
+    }
+    return all[0];
   }
 
   /**
@@ -836,7 +911,9 @@ var Renderer = (function () {
   return {
     render: render,
     getTextBounds: getTextBounds,
+    getTextItemsBounds: getTextItemsBounds,
     getStickersBounds: getStickersBounds,
+    getTextItemsList: getTextItemsList,
     parseFormattedTokens: parseFormattedTokens
   };
 })();
