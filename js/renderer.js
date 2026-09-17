@@ -912,33 +912,31 @@ var Renderer = (function () {
     drawRoundRect(ctx, boxX, boxY, boxW, boxH, 8);
     ctx.stroke();
 
-    /* 2. 프레임 상 우측 상단 X 삭제 버튼 */
-    var btnX = boxX + boxW;
-    var btnY = boxY;
-    var outerR = 12;
-    var innerR = 10;
+    /* 2. 프레임 상 우측 상단 X 삭제 버튼 (프레임 위로 배치 + 붉은 배경 제거 및 모던 화이트/다크 배지) */
+    var btnX = boxX + boxW + 4;
+    var btnY = boxY - 8;
+    var btnR = 11;
 
-    /* 화이트 테두리 & 입체 그림자 */
+    /* 화이트 원형 배경 & 부드러운 입체 그림자 */
     ctx.beginPath();
-    ctx.arc(btnX, btnY, outerR, 0, Math.PI * 2);
+    ctx.arc(btnX, btnY, btnR, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-    ctx.shadowBlur = 5;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
+    ctx.shadowBlur = 4;
     ctx.shadowOffsetY = 1.5;
     ctx.fill();
 
-    /* 레드 원형 배경 */
-    ctx.beginPath();
-    ctx.arc(btnX, btnY, innerR, 0, Math.PI * 2);
-    ctx.fillStyle = '#ff4757';
+    /* 깔끔한 테두리 선 (슬레이트 그레이) */
     ctx.shadowColor = 'transparent';
-    ctx.fill();
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
 
-    /* 화이트 X 아이콘 */
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2.4;
+    /* 모던 다크 슬레이트 X 아이콘 (붉은 배경 제거) */
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2.0;
     ctx.lineCap = 'round';
-    var arm = 4;
+    var arm = 3.5;
     ctx.beginPath();
     ctx.moveTo(btnX - arm, btnY - arm);
     ctx.lineTo(btnX + arm, btnY + arm);
@@ -963,7 +961,7 @@ var Renderer = (function () {
         var boxX = sb.x - 4;
         var boxY = sb.y - 4;
         var boxW = sb.w + 8;
-        return { x: boxX + boxW, y: boxY, radius: 15 };
+        return { x: boxX + boxW + 4, y: boxY - 8, radius: 15 };
       }
       return null;
     }
@@ -975,7 +973,7 @@ var Renderer = (function () {
         var tBoxX = tb.x - 4;
         var tBoxY = tb.y - 4;
         var tBoxW = tb.w + 8;
-        return { x: tBoxX + tBoxW, y: tBoxY, radius: 15 };
+        return { x: tBoxX + tBoxW + 4, y: tBoxY - 8, radius: 15 };
       }
       return null;
     }
