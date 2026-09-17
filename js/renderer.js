@@ -662,29 +662,29 @@ var Renderer = (function () {
     var b2r = fontSize * 0.13;
 
     if (tailDir === 'bottom-left') {
-      b1x = x + w * 0.3;  b1y = y + h + fontSize * 0.35;
-      b2x = x + w * 0.2;  b2y = y + h + fontSize * 0.72;
+      b1x = x + w * 0.3; b1y = y + h + fontSize * 0.35;
+      b2x = x + w * 0.2; b2y = y + h + fontSize * 0.72;
     } else if (tailDir === 'bottom-center') {
-      b1x = x + w * 0.5;  b1y = y + h + fontSize * 0.35;
-      b2x = x + w * 0.5;  b2y = y + h + fontSize * 0.72;
+      b1x = x + w * 0.5; b1y = y + h + fontSize * 0.35;
+      b2x = x + w * 0.5; b2y = y + h + fontSize * 0.72;
     } else if (tailDir === 'bottom-right') {
-      b1x = x + w * 0.7;  b1y = y + h + fontSize * 0.35;
-      b2x = x + w * 0.8;  b2y = y + h + fontSize * 0.72;
+      b1x = x + w * 0.7; b1y = y + h + fontSize * 0.35;
+      b2x = x + w * 0.8; b2y = y + h + fontSize * 0.72;
     } else if (tailDir === 'top-left') {
-      b1x = x + w * 0.3;  b1y = y - fontSize * 0.35;
-      b2x = x + w * 0.2;  b2y = y - fontSize * 0.72;
+      b1x = x + w * 0.3; b1y = y - fontSize * 0.35;
+      b2x = x + w * 0.2; b2y = y - fontSize * 0.72;
     } else if (tailDir === 'top-center') {
-      b1x = x + w * 0.5;  b1y = y - fontSize * 0.35;
-      b2x = x + w * 0.5;  b2y = y - fontSize * 0.72;
+      b1x = x + w * 0.5; b1y = y - fontSize * 0.35;
+      b2x = x + w * 0.5; b2y = y - fontSize * 0.72;
     } else if (tailDir === 'top-right') {
-      b1x = x + w * 0.7;  b1y = y - fontSize * 0.35;
-      b2x = x + w * 0.8;  b2y = y - fontSize * 0.72;
+      b1x = x + w * 0.7; b1y = y - fontSize * 0.35;
+      b2x = x + w * 0.8; b2y = y - fontSize * 0.72;
     } else if (tailDir === 'left') {
-      b1x = x - fontSize * 0.35;  b1y = y + h * 0.55;
-      b2x = x - fontSize * 0.72;  b2y = y + h * 0.65;
+      b1x = x - fontSize * 0.35; b1y = y + h * 0.55;
+      b2x = x - fontSize * 0.72; b2y = y + h * 0.65;
     } else if (tailDir === 'right') {
-      b1x = x + w + fontSize * 0.35;  b1y = y + h * 0.55;
-      b2x = x + w + fontSize * 0.72;  b2y = y + h * 0.65;
+      b1x = x + w + fontSize * 0.35; b1y = y + h * 0.55;
+      b2x = x + w + fontSize * 0.72; b2y = y + h * 0.65;
     }
 
     ctx.beginPath();
@@ -912,18 +912,18 @@ var Renderer = (function () {
     drawRoundRect(ctx, boxX, boxY, boxW, boxH, 8);
     ctx.stroke();
 
-    /* 2. 프레임 상 우측 상단 X 삭제 버튼 (프레임 위로 배치 + 붉은 배경 제거 및 모던 화이트/다크 배지) */
-    var btnX = boxX + boxW + 4;
-    var btnY = boxY - 8;
-    var btnR = 11;
+    /* 2. 프레임 테두리 위 우상단 X 삭제 버튼 (프레임 테두리 선 위에 정확히 안착) */
+    var btnX = boxX + boxW;
+    var btnY = boxY;
+    var btnR = 10.5;
 
     /* 화이트 원형 배경 & 부드러운 입체 그림자 */
     ctx.beginPath();
     ctx.arc(btnX, btnY, btnR, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
     ctx.shadowBlur = 4;
-    ctx.shadowOffsetY = 1.5;
+    ctx.shadowOffsetY = 1;
     ctx.fill();
 
     /* 깔끔한 테두리 선 (슬레이트 그레이) */
@@ -932,14 +932,16 @@ var Renderer = (function () {
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    /* 모던 다크 슬레이트 X 아이콘 (붉은 배경 제거) */
+    /* 모던 다크 슬레이트 X 아이콘 */
     ctx.strokeStyle = '#334155';
     ctx.lineWidth = 2.0;
     ctx.lineCap = 'round';
-    var arm = 3.5;
+    var arm = 3.6;
     ctx.beginPath();
     ctx.moveTo(btnX - arm, btnY - arm);
     ctx.lineTo(btnX + arm, btnY + arm);
+    ctx.stroke();
+    ctx.beginPath();
     ctx.moveTo(btnX + arm, btnY - arm);
     ctx.lineTo(btnX - arm, btnY + arm);
     ctx.stroke();
@@ -961,7 +963,7 @@ var Renderer = (function () {
         var boxX = sb.x - 4;
         var boxY = sb.y - 4;
         var boxW = sb.w + 8;
-        return { x: boxX + boxW + 4, y: boxY - 8, radius: 15 };
+        return { x: boxX + boxW, y: boxY, radius: 15 };
       }
       return null;
     }
@@ -973,7 +975,7 @@ var Renderer = (function () {
         var tBoxX = tb.x - 4;
         var tBoxY = tb.y - 4;
         var tBoxW = tb.w + 8;
-        return { x: tBoxX + tBoxW + 4, y: tBoxY - 8, radius: 15 };
+        return { x: tBoxX + tBoxW, y: tBoxY, radius: 15 };
       }
       return null;
     }
