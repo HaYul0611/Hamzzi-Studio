@@ -361,20 +361,27 @@ body {
 /* --- 업로드 파일 스마트 최적화 배지 --- */
 .upload-opt-badge {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 7px;
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  padding: 8px 10px;
   font-size: 11px;
   color: #166534;
-  margin-top: 2px;
+  margin-top: 4px;
   animation: optBadgeIn 0.25s ease forwards;
 }
 
 .upload-opt-badge[hidden] {
   display: none !important;
+}
+
+.opt-badge-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .opt-badge-left {
@@ -400,6 +407,33 @@ body {
   padding: 2px 7px;
   border-radius: 9999px;
   white-space: nowrap;
+}
+
+.opt-dl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.opt-dl-btn:hover {
+  background: #15803d;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
+}
+
+.opt-dl-btn:active {
+  transform: translateY(0);
 }
 
 @keyframes optBadgeIn {

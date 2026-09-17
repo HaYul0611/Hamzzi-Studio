@@ -71,14 +71,25 @@
 
       <!-- 업로드 파일 용량 스마트 최적화 배지 -->
       <div id="uploadOptimizeBadge" class="upload-opt-badge" hidden>
-        <div class="opt-badge-left">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-            stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          <span class="opt-badge-text" id="uploadOptText">용량 최적화: <strong>--</strong></span>
+        <div class="opt-badge-info">
+          <div class="opt-badge-left">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span class="opt-badge-text" id="uploadOptText">용량 최적화: <strong>--</strong></span>
+          </div>
+          <span class="opt-badge-saving" id="uploadOptSaving">절감</span>
         </div>
-        <span class="opt-badge-saving" id="uploadOptSaving">절감</span>
+        <button type="button" id="downloadOptimizedOnlyBtn" class="opt-dl-btn" title="용량이 압축된 원본 사진 파일을 즉시 다운로드합니다">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span id="optDlBtnText">최적화 파일 즉시 다운로드</span>
+        </button>
       </div>
 
       <!-- 자동 누끼 따기 (배경 투명화) 제어 카드 -->
@@ -236,7 +247,9 @@
           <span class="format-label">저장 형식:</span>
           <div class="export-chips-track" id="exportChipsTrack">
             <div class="export-glider" id="exportGlider"></div>
-            <button class="export-chip active" data-format="png" data-res="1080" type="button">PNG</button>
+            <button class="export-chip active" data-format="compressed" data-res="1080" type="button"
+              title="화질 손실 없이 용량을 최소화한 경량화 저장">용량 최적화</button>
+            <button class="export-chip" data-format="png" data-res="1080" type="button">PNG</button>
             <button class="export-chip" data-format="jpeg" data-res="1080" type="button">JPEG</button>
             <button class="export-chip" data-format="webp" data-res="1080" type="button">WebP</button>
             <button class="export-chip" data-format="png" data-res="3840" type="button">
@@ -257,7 +270,7 @@
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            <span id="mainDownloadText">PNG 다운로드 (1080px)</span>
+            <span id="mainDownloadText">용량 최적화 다운로드 (경량화)</span>
           </button>
           <button id="copyClipboardBtn" class="dl-btn dl-copy" type="button" title="클립보드에 복사하여 카톡/슬랙에 바로 붙여넣기">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"

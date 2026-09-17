@@ -37,6 +37,10 @@ var Editor = (function () {
     bgColor: '#f5f5f5',
     transparentBg: false,
     originalImage: null, /* 누끼 복원용 원본 이미지 인스턴스 */
+    uploadedOptimizedDataUrl: null, /* 업로드 시 압축 최적화된 파일 DataURL */
+    uploadedOptimizedMime: 'image/jpeg',
+    uploadedOptimizedStats: null,
+    uploadedOriginalFileName: 'image',
     selectedStickerId: null,
     selectedTextItemId: null,
     activeEditingTextId: 'bubble_1',
@@ -1233,7 +1237,7 @@ var Editor = (function () {
     }
 
     /* 저장 포맷 & 해상도 선택기 (슬라이딩 글라이더 & 4K UHD 지원) */
-    var currentFormat = 'png';
+    var currentFormat = 'compressed';
     var currentResolution = 1080;
     var formatSelector = document.getElementById('exportFormatSelector');
     var mainDownloadBtn = document.getElementById('mainDownloadBtn');
@@ -1272,13 +1276,15 @@ var Editor = (function () {
         if (!chip) return;
         document.querySelectorAll('.export-chip').forEach(function (c) { c.classList.remove('active'); });
         chip.classList.add('active');
-        currentFormat = chip.dataset.format || 'png';
+        currentFormat = chip.dataset.format || 'compressed';
         currentResolution = parseInt(chip.dataset.res || '1080', 10);
         updateExportGlider(chip);
 
         if (mainDownloadText) {
           if (currentResolution >= 3000) {
             mainDownloadText.textContent = '4K 초고화질 다운로드 (3840px)';
+          } else if (currentFormat === 'compressed') {
+            mainDownloadText.textContent = '용량 최적화 다운로드 (경량화)';
           } else if (currentFormat === 'jpeg') {
             mainDownloadText.textContent = 'JPEG 다운로드 (1080px)';
           } else if (currentFormat === 'webp') {
@@ -1299,6 +1305,14 @@ var Editor = (function () {
     if (mainDownloadBtn) {
       mainDownloadBtn.addEventListener('click', function () {
         download(currentFormat, currentResolution);
+      });
+    }
+
+    /* 최적화 배지 내 '최적화 파일 즉시 다운로드' 버튼 */
+    var downloadOptimizedOnlyBtn = document.getElementById('downloadOptimizedOnlyBtn');
+    if (downloadOptimizedOnlyBtn) {
+      downloadOptimizedOnlyBtn.addEventListener('click', function () {
+        downloadOptimizedUploadedFile();
       });
     }
 
@@ -1397,7 +1411,12 @@ var Editor = (function () {
         return;
       }
 
-      /* 원본 백업 (누끼 복원 및 재시도용) */
+      /* 원본 백업 및 최적화된 파일 데이터 보존 (경량화 다운로드용) */
+      state.uploadedOptimizedDataUrl = stats.dataUrl || compImg.src;
+      state.uploadedOptimizedMime = stats.mimeType || 'image/jpeg';
+      state.uploadedOptimizedStats = stats;
+      state.uploadedOriginalFileName = file.name || 'image';
+
       state.originalImage = compImg;
       state.hamsterId = 'custom';
       state.imagePanX = 0;
@@ -1406,15 +1425,19 @@ var Editor = (function () {
       if (imgZoomInput) imgZoomInput.value = 100;
       if (imgZoomVal) imgZoomVal.textContent = '100%';
 
-      /* 용량 최적화 배지 노출 */
+      /* 용량 최적화 배지 노출 및 다운로드 버튼 라벨 갱신 */
       var optBadge = document.getElementById('uploadOptimizeBadge');
       var optText = document.getElementById('uploadOptText');
       var optSaving = document.getElementById('uploadOptSaving');
+      var optDlBtnText = document.getElementById('optDlBtnText');
       if (optBadge && optText && optSaving) {
         optBadge.hidden = false;
         optBadge.removeAttribute('hidden');
         optText.innerHTML = '용량 최적화: <strong>' + stats.origFormatted + ' → ' + stats.compressedFormatted + '</strong>';
         optSaving.textContent = stats.reductionPercent > 0 ? (stats.reductionPercent + '% 절감') : '최적화 완료';
+        if (optDlBtnText) {
+          optDlBtnText.textContent = '최적화 파일 즉시 다운로드 (' + stats.compressedFormatted + ')';
+        }
       }
 
       /* 2. 자동 누끼 따기 옵션 확인 */
@@ -2085,30 +2108,84 @@ var Editor = (function () {
     updateCanvasSelectionOverlay();
   }
 
-  /* --- 다운로드 (1080px 또는 3840px 4K 초고화질 / PNG, JPEG, WebP) --- */
+  /* --- 압축 최적화된 업로드 원본 사진 즉시 다운로드 --- */
+  function downloadOptimizedUploadedFile() {
+    if (!state.uploadedOptimizedDataUrl) {
+      Utils.showToast(toastEl, '최적화된 업로드 사진이 없습니다. 먼저 사진을 업로드하세요.', 'info');
+      return;
+    }
+    var origName = state.uploadedOriginalFileName || 'image';
+    var dotIdx = origName.lastIndexOf('.');
+    var baseName = dotIdx !== -1 ? origName.substring(0, dotIdx) : origName;
+    var ext = (state.uploadedOptimizedMime === 'image/jpeg') ? 'jpg' : ((state.uploadedOptimizedMime === 'image/webp') ? 'webp' : 'png');
+    var filename = baseName + '-optimized.' + ext;
+
+    try {
+      var link = document.createElement('a');
+      link.download = filename;
+      link.href = state.uploadedOptimizedDataUrl;
+      link.click();
+      var sizeText = state.uploadedOptimizedStats ? (' (' + state.uploadedOptimizedStats.compressedFormatted + ')') : '';
+      Utils.showToast(toastEl, '최적화 파일' + sizeText + ' 즉시 다운로드 완료!', 'success');
+    } catch (e) {
+      console.error('Optimized download error:', e);
+      Utils.showToast(toastEl, '다운로드 실패: ' + e.message, 'error');
+    }
+  }
+
+  /* --- 다운로드 (용량 최적화 경량화, 1080px 표준, 3840px 4K 초고화질 / WebP, JPEG, PNG) --- */
   function download(format, resolution) {
     var width = resolution || 1080;
 
+    /* 사용자가 이미지만 업로드하고 별도 문구/스티커 꾸미기가 없는 상태에서 'compressed' 다운로드 시 원본 최적화 파일 직출력 */
+    var hasCustomDecorations = (state.stickers && state.stickers.length > 0) ||
+      (state.textItems && state.textItems.some(function (t) { return t.text || (t.bubble && t.bubble !== 'none'); })) ||
+      state.transparentBg;
+
+    if (format === 'compressed' && state.hamsterId === 'custom' && state.uploadedOptimizedDataUrl && !hasCustomDecorations) {
+      downloadOptimizedUploadedFile();
+      return;
+    }
+
     function executeDownload() {
       Renderer.render(downloadCanvas, state, width);
-      var mime = format === 'jpeg' ? 'image/jpeg' : (format === 'webp' ? 'image/webp' : 'image/png');
-      var ext = format === 'jpeg' ? 'jpg' : (format === 'webp' ? 'webp' : 'png');
+      var mime, ext, quality;
+
+      if (format === 'compressed') {
+        mime = state.transparentBg ? 'image/webp' : 'image/jpeg';
+        ext = state.transparentBg ? 'webp' : 'jpg';
+        quality = 0.82; /* 85% 이상 용량 절감 보장 경량화 압축 */
+      } else if (format === 'jpeg') {
+        mime = 'image/jpeg';
+        ext = 'jpg';
+        quality = 0.85; /* 고화질 유지 및 용량 비대화 방지 */
+      } else if (format === 'webp') {
+        mime = 'image/webp';
+        ext = 'webp';
+        quality = 0.82;
+      } else {
+        mime = 'image/png';
+        ext = 'png';
+        quality = 1.0;
+      }
+
       var ratioStr = state.ratio.replace(':', 'x');
-      var hqPrefix = width >= 3000 ? '-4K' : (width >= 2000 ? '-2K' : '');
+      var hqPrefix = width >= 3000 ? '-4K' : (width >= 2000 ? '-2K' : (format === 'compressed' ? '-optimized' : ''));
       var filename = 'hamzzi-' + ratioStr + hqPrefix + '.' + ext;
 
       try {
         var link = document.createElement('a');
         link.download = filename;
-        link.href = downloadCanvas.toDataURL(mime, 0.95);
+        link.href = downloadCanvas.toDataURL(mime, quality);
         link.click();
+        Utils.showToast(toastEl, '다운로드 완료! (' + ext.toUpperCase() + (format === 'compressed' ? ' 용량 최적화' : '') + ')', 'success');
       } catch (e) {
         console.error('Download error:', e);
         Utils.showToast(toastEl, '다운로드 실패: ' + e.message, 'error');
       }
     }
 
-    /* 카드 2 검증: 글꼴 준비 뒤 저장 보장 */
+    /* 글꼴 준비 뒤 저장 보장 */
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(executeDownload).catch(executeDownload);
     } else {

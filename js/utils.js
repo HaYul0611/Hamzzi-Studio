@@ -134,7 +134,9 @@ var Utils = (function () {
           origFormatted: formatFileSize(origSize),
           compressedFormatted: formatFileSize(compressedSize),
           width: w,
-          height: h
+          height: h,
+          dataUrl: dataUrl,
+          mimeType: mimeType
         });
       };
       resultImg.onerror = function () {
@@ -145,7 +147,9 @@ var Utils = (function () {
           origFormatted: formatFileSize(origSize),
           compressedFormatted: formatFileSize(origSize),
           width: img.width,
-          height: img.height
+          height: img.height,
+          dataUrl: dataUrl,
+          mimeType: mimeType
         });
       };
       resultImg.src = dataUrl;

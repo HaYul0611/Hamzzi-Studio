@@ -912,31 +912,51 @@ var Renderer = (function () {
     drawRoundRect(ctx, boxX, boxY, boxW, boxH, 8);
     ctx.stroke();
 
-    /* 2. 프레임 테두리 위 우상단 X 삭제 버튼 (프레임 테두리 선 위에 정확히 안착) */
+    /* 2. 중요: 점선 설정 해제 (실선 복구하여 X 아이콘이 끊어지지 않고 온전하게 그려지도록 보장) */
+    ctx.setLineDash([]);
+
+    /* 3. 프레임 테두리 위 우상단 X 삭제 버튼 (배경 투명 + 끊김 없는 선명한 X) */
     var btnX = boxX + boxW;
     var btnY = boxY;
     var btnR = 10.5;
 
-    /* 화이트 원형 배경 & 부드러운 입체 그림자 */
+    /* 배경 투명: 클릭 영역 확보를 위해 완전 투명 채우기 */
     ctx.beginPath();
     ctx.arc(btnX, btnY, btnR, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.01)'; /* 배경 투명 */
     ctx.fill();
 
-    /* 깔끔한 테두리 선 (슬레이트 그레이) */
-    ctx.shadowColor = 'transparent';
-    ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 1.2;
+    /* 슬림 원형 가이드 테두리 (투명 배경 위에서 위치 시인성 확보) */
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetY = 1;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 1.6;
     ctx.stroke();
 
-    /* 모던 다크 슬레이트 X 아이콘 */
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 2.0;
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.0;
+    ctx.stroke();
+
+    /* 끊김 없는 선명한 모던 X 아이콘 */
+    ctx.shadowColor = 'transparent';
     ctx.lineCap = 'round';
-    var arm = 3.6;
+    var arm = 4.0;
+
+    /* 배경색 무관하게 선명하도록 화이트 언더라인 후 다크 슬레이트 X 렌더 */
+    ctx.lineWidth = 3.2;
+    ctx.strokeStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(btnX - arm, btnY - arm);
+    ctx.lineTo(btnX + arm, btnY + arm);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(btnX + arm, btnY - arm);
+    ctx.lineTo(btnX - arm, btnY + arm);
+    ctx.stroke();
+
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = '#1e293b';
     ctx.beginPath();
     ctx.moveTo(btnX - arm, btnY - arm);
     ctx.lineTo(btnX + arm, btnY + arm);
