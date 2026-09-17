@@ -18,8 +18,8 @@
 
 | 제출 항목 | 제출 내용 및 형식 |
 | :--- | :--- |
-| **결과물 주소** | 무로그인 공개 편집기 (GitHub Pages 배포 URL: `https://<username>.github.io/hamzzi-studio/`) |
-| **소스 주소** | GitHub 공개 저장소 URL (`https://github.com/<username>/hamzzi-studio`) |
+| **결과물 주소** | 무로그인 공개 편집기 (GitHub Pages 배포 URL: `https://hayul0611.github.io/Hamzzi-Studio/`) |
+| **소스 주소** | GitHub 공개 저장소 URL (`https://github.com/HaYul0611/Hamzzi-Studio`) |
 | **짧은 확인 방법 4줄** | ① 위치 / ② 3단계 이내 행동 / ③ 통과 모습 / ④ 안 될 때 모습 (T03-C31 준수) |
 | **AI와 나의 판단 3줄** | ① AI에게 맡긴 일 / ② 학생이 직접 판단한 일 / ③ AI 제안을 따르지 않은 일(없으면 이유) (T03-C32 준수) |
 
@@ -143,7 +143,7 @@
 ## 6. 짧은 확인 방법 4줄 (T03-C31 표준 양식)
 
 1. **어디로 가나요 (위치)**:  
-   웹 브라우저(크롬, 엣지, 웨일 등) 새 시크릿 창에서 배포 URL(`https://<username>.github.io/hamzzi-studio/`)에 접속합니다.
+   웹 브라우저(크롬, 엣지, 웨일 등) 새 시크릿 창에서 배포 URL(`https://hayul0611.github.io/Hamzzi-Studio/`)에 접속합니다.
 2. **3단계 이내 무엇을 하나요 (행동)**:  
    ① 좌측 햄찌 썸네일을 클릭하거나 사진을 드래그해 올리고, ② 우측에서 문구를 입력한 뒤, ③ 중앙 하단의 `[PNG 다운로드]` 버튼을 클릭합니다.
 3. **무엇이 보이면 통과인가요 (통과 모습)**:  

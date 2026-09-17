@@ -468,8 +468,9 @@ var Editor = (function () {
         /* 1. 기본/감동 등 프리셋 햄스터인 경우: 원본 훼손 0%의 고화질 투명 PNG 우선 로드 */
         if (state.hamsterId && state.hamsterId !== 'custom') {
           var h = HAMSTERS.find(function (item) { return item.id === state.hamsterId; });
-          if (h && h.transparentFile) {
-            Utils.loadImageFromUrl(h.transparentFile, function (err, transImg) {
+          if (h && (h.transparentFile || (window.HamsterDataTransparent && HamsterDataTransparent[state.hamsterId]))) {
+            var transSrc = (window.HamsterDataTransparent && HamsterDataTransparent[state.hamsterId]) || h.transparentFile;
+            Utils.loadImageFromUrl(transSrc, function (err, transImg) {
               if (!err && transImg) {
                 state.originalImage = sourceImg;
                 state.image = transImg;

@@ -305,32 +305,40 @@ var Utils = (function () {
       var pIdx = py * w + px;
       if (visited[pIdx] || isBarrier[pIdx]) return;
       var p4 = pIdx * 4;
-      var d = distToExpectedBg(px, py, data[p4], data[p4 + 1], data[p4 + 2]);
-      if (d <= safeBgTol * 1.2) {
+      var r = data[p4], g = data[p4 + 1], b = data[p4 + 2];
+      
+      /* 그림자/발(어두운 영역) 및 경계선 시드 침범 차단 */
+      if (grad[pIdx] >= edgeThresh) return;
+      var lum = (r * 299 + g * 587 + b * 114) / 1000;
+      var ro = py * 6;
+      var xRatio = w > 1 ? px / (w - 1) : 0;
+      var expR = rowBg[ro] + (rowBg[ro + 3] - rowBg[ro]) * xRatio;
+      var expG = rowBg[ro + 1] + (rowBg[ro + 4] - rowBg[ro + 1]) * xRatio;
+      var expB = rowBg[ro + 2] + (rowBg[ro + 5] - rowBg[ro + 2]) * xRatio;
+      var expLum = (expR * 299 + expG * 587 + expB * 114) / 1000;
+      if (lum < expLum - 12) return; /* 바닥 그림자나 발가락 보호 */
+
+      var d = distToExpectedBg(px, py, r, g, b);
+      if (d <= safeBgTol * 0.8) {
         visited[pIdx] = 1;
         queue[tail++] = pIdx;
       }
     }
 
-    /* 외곽 테두리 시드 초기화 */
+    /* 외곽 테두리 시드 초기화: 상단 및 상단 65% 좌우 외곽만 안전 시드 주입 (하단 발/바닥 그림자 보호) */
     for (var x = 0; x < w; x++) { trySeed(x, 0); }
-    for (var y = 0; y < h; y++) { trySeed(0, y); trySeed(w - 1, y); }
-    var btmCornerW = Math.floor(w * 0.25);
-    for (var bx = 0; bx < btmCornerW; bx++) {
-      trySeed(bx, h - 1);
-      trySeed(w - 1 - bx, h - 1);
-    }
-    for (var mx = btmCornerW; mx < w - btmCornerW; mx++) {
-      var mIdx = (h - 1) * w + mx;
-      if (!isBarrier[mIdx]) {
-        var m4 = mIdx * 4;
-        if (distToExpectedBg(mx, h - 1, data[m4], data[m4 + 1], data[m4 + 2]) < safeBgTol * 0.8) {
-          trySeed(mx, h - 1);
-        }
-      }
+    var safeSideH = Math.floor(h * 0.65);
+    for (var y = 0; y < safeSideH; y++) {
+      trySeed(0, y);
+      trySeed(w - 1, y);
     }
 
-    /* 5. 피사체 보호 BFS 탐색 */
+    /* 5. 피사체 무손실 보호 BFS 탐색 */
+    var coreLeft = Math.floor(w * 0.28);
+    var coreRight = Math.ceil(w * 0.72);
+    var coreTop = Math.floor(h * 0.28);
+    var coreBottom = Math.ceil(h * 0.75);
+
     while (head < tail) {
       var curr = queue[head++];
       var cx = curr % w;
@@ -355,6 +363,22 @@ var Utils = (function () {
         var n4 = nIdx * 4;
         var nr = data[n4], ng = data[n4 + 1], nb = data[n4 + 2];
 
+        /* 피사체 중심 코어 영역 보호 */
+        if (nx >= coreLeft && nx <= coreRight && ny >= coreTop && ny <= coreBottom) {
+          var coreDist = distToExpectedBg(nx, ny, nr, ng, nb);
+          if (coreDist > 6 || grad[nIdx] > 4) continue;
+        }
+
+        /* 바닥 접촉 그림자 및 발 보호: 기대 배경 밝기보다 현저히 어두운 픽셀 차단 */
+        var nLum = (nr * 299 + ng * 587 + nb * 114) / 1000;
+        var nRo = ny * 6;
+        var nXRatio = w > 1 ? nx / (w - 1) : 0;
+        var nExpR = rowBg[nRo] + (rowBg[nRo + 3] - rowBg[nRo]) * nXRatio;
+        var nExpG = rowBg[nRo + 1] + (rowBg[nRo + 4] - rowBg[nRo + 1]) * nXRatio;
+        var nExpB = rowBg[nRo + 2] + (rowBg[nRo + 5] - rowBg[nRo + 2]) * nXRatio;
+        var nExpLum = (nExpR * 299 + nExpG * 587 + nExpB * 114) / 1000;
+        if (nLum < nExpLum - 12) continue;
+
         var stepDiff = Math.max(Math.abs(nr - curR), Math.abs(ng - curG), Math.abs(nb - curB));
         if (stepDiff > maxStepDiff) continue;
 
@@ -366,21 +390,22 @@ var Utils = (function () {
       }
     }
 
-    /* 6. 형태학적 닫힘(Morphological Closing) 연산으로 피사체 외곽 미세 홈/구멍 메우기 */
+    /* 6. 형태학적 닫힘(Morphological Closing) 및 내부 홀(Hole) 완벽 메우기 */
     var fgMask = new Uint8Array(totalPixels);
     for (var fi = 0; fi < totalPixels; fi++) {
       fgMask[fi] = visited[fi] ? 0 : 1;
     }
 
     var dilatedFg = new Uint8Array(totalPixels);
-    var closeRad = 4;
+    var closeRad = 3;
     for (var my = closeRad; my < h - closeRad; my++) {
       var mRow = my * w;
       for (var mx = closeRad; mx < w - closeRad; mx++) {
         if (fgMask[mRow + mx]) {
           for (var cdy = -closeRad; cdy <= closeRad; cdy++) {
+            var rowOff = (my + cdy) * w;
             for (var cdx = -closeRad; cdx <= closeRad; cdx++) {
-              dilatedFg[(my + cdy) * w + (mx + cdx)] = 1;
+              dilatedFg[rowOff + (mx + cdx)] = 1;
             }
           }
         }
@@ -393,8 +418,9 @@ var Utils = (function () {
       for (var ex = closeRad; ex < w - closeRad; ex++) {
         var allCovered = true;
         for (var cdy = -closeRad; cdy <= closeRad; cdy++) {
+          var rowOff = (ey + cdy) * w;
           for (var cdx = -closeRad; cdx <= closeRad; cdx++) {
-            if (!dilatedFg[(ey + cdy) * w + (ex + cdx)]) {
+            if (!dilatedFg[rowOff + (ex + cdx)]) {
               allCovered = false;
               break;
             }
@@ -411,8 +437,8 @@ var Utils = (function () {
       }
     }
 
-    /* 7. 부드러운 안티에일리어싱(알파 페더링) */
-    var softBand = 6;
+    /* 7. 부드러운 안티에일리어싱(알파 페더링) — 원본 RGB 픽셀 100% 무손실 보존 */
+    var softBand = 5;
     for (var y = 0; y < h; y++) {
       var row = y * w;
       for (var x = 0; x < w; x++) {

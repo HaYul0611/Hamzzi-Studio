@@ -68,7 +68,7 @@
 1. 본 프로젝트를 GitHub 리포지토리에 푸시합니다.
 2. 리포지토리의 **Settings** > **Pages** 메뉴로 이동합니다.
 3. **Branch**를 `main` (또는 `master`), 폴더를 `/ (root)`로 지정한 후 **Save**를 클릭합니다.
-4. 약 1분 후 제공되는 URL(예: `https://<username>.github.io/<repo-name>/`)로 전 세계 어디서든 접속 가능합니다.
+4. 약 1분 후 제공되는 URL(`https://hayul0611.github.io/Hamzzi-Studio/`)로 전 세계 어디서든 접속 가능합니다.
 
 ---
 
